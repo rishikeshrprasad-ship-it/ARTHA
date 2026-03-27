@@ -1,0 +1,19 @@
+{
+  "name": "ARTHA — Statistical Intelligence for Indian Markets",
+  "short_name": "ARTHA",
+  "description": "India's most advanced statistical trading intelligence platform for NSE & BSE",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#FF6B00",
+  "orientation": "landscape-primary",
+  "icons": [
+    {
+      "src": "/artha-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["finance", "productivity"],
+  "lang": "en-IN"
+}
