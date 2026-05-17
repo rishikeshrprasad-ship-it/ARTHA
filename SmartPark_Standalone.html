@@ -1,0 +1,2757 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>SmartPark AI — Intelligent Parking Indication System</title>
+  <meta name="description" content="Smart City AI Parking System powered by MATLAB Image Processing" />
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+
+:root{
+  --bg:#050a18;--surface:rgba(255,255,255,0.05);--border:rgba(0,255,255,0.15);
+  --cyan:#00f5ff;--violet:#7c3aed;--green:#00ff88;--red:#ff3366;--amber:#ffaa00;
+  --text:#e0f4ff;--muted:rgba(224,244,255,0.5);--card:rgba(0,15,40,0.65);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;}
+
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:rgba(0,0,0,0.3);}
+::-webkit-scrollbar-thumb{background:var(--cyan);border-radius:3px;}
+
+/* ── BOOT ─────────────────────────────────────── */
+#boot-screen{position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;}
+#boot-screen.hidden{animation:fadeOut .8s forwards;}
+.boot-logo{font-family:'Orbitron',sans-serif;font-size:clamp(2.2rem,5vw,3.8rem);font-weight:900;color:var(--cyan);text-shadow:0 0 40px var(--cyan),0 0 80px rgba(0,245,255,.35);letter-spacing:4px;animation:logoPulse 2s ease-in-out infinite;}
+.boot-sub{color:var(--muted);font-size:.85rem;letter-spacing:2px;text-align:center;max-width:580px;padding:0 16px;}
+.boot-bar-wrap{width:min(480px,80vw);background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;border:1px solid var(--border);}
+.boot-bar{height:3px;background:linear-gradient(90deg,var(--violet),var(--cyan));width:0%;transition:width .35s ease;}
+.boot-label{font-size:.72rem;color:var(--cyan);letter-spacing:2px;font-family:'Orbitron',sans-serif;}
+
+/* ── LOGIN ─────────────────────────────────────── */
+#login-screen{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;}
+#login-screen.active{display:flex;}
+/* Animated aurora background replacing boring canvas */
+#login-screen::before{
+  content:'';position:absolute;inset:0;z-index:0;
+  background:radial-gradient(ellipse at 20% 50%,rgba(124,58,237,.18) 0%,transparent 60%),
+             radial-gradient(ellipse at 80% 20%,rgba(0,245,255,.12) 0%,transparent 60%),
+             radial-gradient(ellipse at 60% 80%,rgba(0,255,136,.08) 0%,transparent 60%),var(--bg);
+  animation:auroraShift 8s ease-in-out infinite alternate;
+}
+#particle-canvas{position:absolute;inset:0;z-index:1;}
+.auth-card{
+  position:relative;z-index:2;width:min(460px,95vw);
+  background:rgba(2,10,30,.9);backdrop-filter:blur(30px);
+  border:1px solid rgba(0,245,255,.2);border-radius:22px;padding:34px 30px;
+  box-shadow:0 0 80px rgba(0,245,255,.08),0 30px 60px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.05);
+  animation:fadeInUp .6s ease;
+}
+.auth-logo{font-family:'Orbitron',sans-serif;font-size:1.8rem;font-weight:900;color:var(--cyan);text-align:center;margin-bottom:2px;text-shadow:0 0 25px var(--cyan);letter-spacing:3px;}
+.auth-tagline{text-align:center;color:var(--muted);font-size:.72rem;letter-spacing:2px;margin-bottom:22px;text-transform:uppercase;}
+.tab-strip{display:flex;border-bottom:1px solid var(--border);margin-bottom:22px;gap:4px;}
+.tab-btn{flex:1;padding:10px;background:none;border:none;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer;transition:all .3s;border-bottom:2px solid transparent;letter-spacing:1px;text-transform:uppercase;}
+.tab-btn.active{color:var(--cyan);border-bottom-color:var(--cyan);}
+.tab-pane,.wizard-step{display:none;}
+.tab-pane.active,.wizard-step.active{display:block;animation:fadeInUp .35s ease;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:.72rem;color:var(--muted);letter-spacing:1px;margin-bottom:5px;text-transform:uppercase;}
+.field input,.field select{width:100%;background:rgba(0,245,255,.03);border:1px solid rgba(0,245,255,.12);border-radius:9px;padding:10px 13px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:.95rem;outline:none;transition:border-color .3s;}
+.field input:focus,.field select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,245,255,.08);}
+.field select option{background:#0a1a30;}
+.btn-primary{width:100%;padding:12px;background:linear-gradient(135deg,var(--violet),#3b82f6);border:none;border-radius:10px;color:#fff;font-family:'Orbitron',sans-serif;font-size:.8rem;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all .3s;margin-top:6px;box-shadow:0 4px 20px rgba(124,58,237,.35);}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,245,255,.3);}
+.btn-scan{width:100%;padding:13px;background:linear-gradient(135deg,#00c9a7,var(--cyan));border:none;border-radius:10px;color:#000;font-family:'Orbitron',sans-serif;font-size:.85rem;font-weight:900;letter-spacing:2px;cursor:pointer;transition:all .3s;margin-top:6px;box-shadow:0 4px 20px rgba(0,245,255,.25);}
+.btn-scan:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,245,255,.55);}
+.matlab-badge{margin-top:14px;background:rgba(0,0,0,.45);border:1px solid rgba(255,170,0,.3);border-radius:6px;padding:7px 12px;font-size:.68rem;color:var(--amber);letter-spacing:.5px;text-align:center;}
+.link-text{text-align:center;color:var(--muted);font-size:.82rem;margin-top:10px;cursor:pointer;}
+.link-text span{color:var(--cyan);}
+.wizard-steps{display:flex;gap:6px;margin-bottom:18px;}
+.step-dot{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.1);transition:background .4s;}
+.step-dot.done{background:var(--cyan);}
+.step-dot.active{background:linear-gradient(90deg,var(--cyan),var(--violet));}
+
+/* Webcam */
+.webcam-box{position:relative;width:100%;aspect-ratio:4/3;background:#000;border-radius:12px;overflow:hidden;border:2px solid var(--border);}
+.webcam-box video,.webcam-box canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.scan-overlay{position:absolute;inset:0;pointer-events:none;}
+.scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--green),transparent);animation:scanMove 2s linear infinite;top:0;}
+.corner{position:absolute;width:18px;height:18px;border-color:var(--cyan);border-style:solid;animation:cornerPulse 1.5s ease-in-out infinite;}
+.corner.tl{top:8px;left:8px;border-width:3px 0 0 3px;}
+.corner.tr{top:8px;right:8px;border-width:3px 3px 0 0;}
+.corner.bl{bottom:8px;left:8px;border-width:0 0 3px 3px;}
+.corner.br{bottom:8px;right:8px;border-width:0 3px 3px 0;}
+.face-oval{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:55%;height:78%;border:2px dashed rgba(0,245,255,.4);border-radius:50%;animation:ovalPulse 2s ease-in-out infinite;}
+
+/* ── FACE SCAN MODAL ─────────────────────────── */
+#face-scan-modal{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.95);}
+#face-scan-modal.active{display:flex;}
+.hex-bg{position:absolute;inset:0;opacity:.04;background-image:url("data:image/svg+xml,%3Csvg width='60' height='52' viewBox='0 0 60 52' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0L60 17.3V34.7L30 52 0 34.7V17.3z' fill='none' stroke='%2300f5ff' stroke-width='1'/%3E%3C/svg%3E");background-size:60px;}
+.scan-modal-card{position:relative;z-index:1;width:min(600px,95vw);background:rgba(3,12,32,.97);backdrop-filter:blur(30px);border:1px solid rgba(0,245,255,.3);border-radius:22px;padding:32px;text-align:center;box-shadow:0 0 100px rgba(0,245,255,.1);}
+.scan-modal-title{font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--cyan);letter-spacing:3px;margin-bottom:5px;}
+.scan-modal-sub{color:var(--muted);font-size:.75rem;letter-spacing:1px;margin-bottom:20px;}
+.scan-webcam{position:relative;width:380px;max-width:100%;aspect-ratio:4/3;margin:0 auto 18px;background:#000;border-radius:12px;overflow:hidden;border:2px solid rgba(0,245,255,.4);box-shadow:0 0 40px rgba(0,245,255,.15);}
+.scan-webcam video{width:100%;height:100%;object-fit:cover;}
+.scan-status{font-family:'Orbitron',sans-serif;font-size:.82rem;color:var(--cyan);letter-spacing:2px;min-height:22px;transition:color .3s;}
+.scan-controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px;}
+.btn-fail{padding:10px 18px;background:none;border:1px solid var(--red);border-radius:8px;color:var(--red);font-family:'Rajdhani',sans-serif;font-size:.88rem;font-weight:600;cursor:pointer;transition:all .3s;}
+.btn-fail:hover{background:rgba(255,51,102,.12);}
+.modal-flash{position:absolute;inset:0;border-radius:22px;pointer-events:none;opacity:0;}
+.modal-flash.green-flash{animation:greenFlash .5s ease;}
+.modal-flash.red-flash{animation:redFlash .5s ease;}
+.shake{animation:shake .5s ease;}
+
+/* ── APP SHELL ──────────────────────────────────── */
+#app-shell{position:fixed;inset:0;display:none;flex-direction:column;overflow:hidden;}
+#app-shell.active{display:flex;}
+
+/* NAV */
+#top-nav{height:58px;background:rgba(3,10,28,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:14px;flex-shrink:0;z-index:100;}
+.nav-logo{font-family:'Orbitron',sans-serif;font-size:1.05rem;font-weight:900;color:var(--cyan);text-shadow:0 0 12px var(--cyan);white-space:nowrap;letter-spacing:2px;}
+.nav-online{display:flex;align-items:center;gap:5px;font-size:.7rem;color:var(--green);letter-spacing:1px;white-space:nowrap;}
+.nav-online::before{content:'';width:7px;height:7px;background:var(--green);border-radius:50%;box-shadow:0 0 6px var(--green);animation:pulse 1.5s infinite;}
+.nav-center{flex:1;display:flex;flex-direction:column;align-items:center;}
+.nav-clock{font-family:'Orbitron',sans-serif;font-size:1.25rem;color:var(--text);letter-spacing:4px;}
+.nav-date{font-size:.68rem;color:var(--muted);letter-spacing:2px;}
+.nav-right{display:flex;align-items:center;gap:12px;}
+.nav-user-info{text-align:right;}
+.nav-user-name{font-size:.88rem;font-weight:600;color:var(--text);}
+.nav-plate{font-family:'Orbitron',sans-serif;font-size:.68rem;color:var(--cyan);letter-spacing:1px;}
+.nav-avatar{width:36px;height:36px;border-radius:50%;border:2px solid var(--cyan);background:linear-gradient(135deg,var(--violet),#3b82f6);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;overflow:hidden;flex-shrink:0;}
+.nav-avatar img{width:100%;height:100%;object-fit:cover;}
+.nav-icon-btn{background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;position:relative;transition:color .3s;padding:5px;}
+.nav-icon-btn:hover{color:var(--cyan);}
+.nav-badge{position:absolute;top:1px;right:1px;background:var(--red);color:#fff;font-size:.58rem;width:15px;height:15px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+.matlab-nav-badge{background:rgba(255,170,0,.12);border:1px solid rgba(255,170,0,.35);border-radius:5px;padding:3px 7px;font-size:.62rem;color:var(--amber);letter-spacing:.5px;white-space:nowrap;}
+
+/* BODY */
+#body-layout{flex:1;display:flex;overflow:hidden;}
+
+/* SIDEBAR */
+#sidebar{width:210px;background:rgba(0,6,20,.85);backdrop-filter:blur(20px);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:12px 0;flex-shrink:0;transition:width .3s;overflow:hidden;}
+#sidebar.collapsed{width:56px;}
+.sidebar-item{display:flex;align-items:center;gap:11px;padding:11px 18px;cursor:pointer;transition:all .25s;border-left:3px solid transparent;white-space:nowrap;color:var(--muted);font-weight:600;letter-spacing:.5px;}
+.sidebar-item:hover{color:var(--cyan);border-left-color:rgba(0,245,255,.4);background:rgba(0,245,255,.04);}
+.sidebar-item.active{color:var(--cyan);border-left-color:var(--cyan);background:rgba(0,245,255,.08);}
+.sidebar-icon{font-size:1.1rem;flex-shrink:0;}
+.sidebar-label{font-size:.82rem;}
+#sidebar.collapsed .sidebar-label{display:none;}
+.sidebar-toggle{margin-top:auto;padding:10px 18px;cursor:pointer;color:var(--muted);font-size:1.1rem;text-align:center;transition:color .3s;}
+.sidebar-toggle:hover{color:var(--cyan);}
+
+/* MAIN CONTENT */
+#main-content{flex:1;overflow-y:auto;padding:14px;}
+
+/* RIGHT PANEL */
+#right-panel{width:270px;background:rgba(0,6,20,.85);backdrop-filter:blur(20px);border-left:1px solid var(--border);overflow-y:auto;padding:14px;flex-shrink:0;display:flex;flex-direction:column;gap:14px;}
+
+/* VIEWS */
+.view{display:none;}
+.view.active{display:block;animation:fadeInUp .4s ease;}
+
+.dir-path-anim { stroke-dashoffset: 1000; animation: drawPath 2s linear forwards; }
+@keyframes drawPath { from { stroke-dashoffset: 1000; } to { stroke-dashoffset: 0; } }
+
+/* Stats */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.stat-card{background:var(--card);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center;animation:fadeInUp .5s ease both;transition:transform .3s;cursor:default;}
+.stat-card:hover{transform:translateY(-3px);}
+.stat-label{font-size:.68rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;}
+.stat-num{font-family:'Orbitron',sans-serif;font-size:2rem;font-weight:700;}
+.stat-num.total{color:var(--cyan);}
+.stat-num.available{color:var(--green);}
+.stat-num.occupied{color:var(--red);}
+.stat-num.reserved{color:#3b82f6;}
+
+/* Glass panel */
+.glass-panel{background:var(--card);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.cctv-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.panel-header{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-bottom:1px solid var(--border);background:rgba(0,245,255,.02);}
+.panel-title{font-family:'Orbitron',sans-serif;font-size:.68rem;color:var(--cyan);letter-spacing:1.5px;}
+.live-badge{display:flex;align-items:center;gap:4px;background:rgba(255,51,102,.18);border:1px solid rgba(255,51,102,.45);border-radius:4px;padding:2px 7px;font-size:.62rem;font-weight:700;color:var(--red);letter-spacing:1px;}
+.live-dot{width:5px;height:5px;background:var(--red);border-radius:50%;animation:pulse 1s infinite;}
+.panel-algo{font-size:.62rem;color:var(--muted);padding:5px 13px;border-top:1px solid var(--border);background:rgba(0,0,0,.2);}
+
+/* ── PARKING MAP (DIRECTIONAL) ─────────────────── */
+#parking-map-wrapper{padding:12px;}
+.map-entry-indicator,.map-exit-indicator{display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 0;font-family:'Orbitron',sans-serif;font-size:.72rem;letter-spacing:3px;}
+.map-entry-indicator{color:var(--green);border-bottom:1px dashed rgba(0,255,136,.25);margin-bottom:10px;}
+.map-exit-indicator{color:var(--red);border-top:1px dashed rgba(255,51,102,.25);margin-top:10px;}
+.map-entry-indicator .arrow-anim{animation:arrowEntryPulse 1.2s ease-in-out infinite;}
+.map-exit-indicator .arrow-anim{animation:arrowExitPulse 1.2s ease-in-out infinite;}
+.map-row{display:flex;align-items:stretch;margin-bottom:6px;gap:8px;}
+.row-label{width:110px;flex-shrink:0;display:flex;align-items:center;font-size:.65rem;color:var(--muted);letter-spacing:.5px;padding-right:6px;border-right:1px solid var(--border);line-height:1.3;}
+.row-cells{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.slot{border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;position:relative;transition:all .35s;border:2px solid transparent;min-height:72px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;animation:slotIn .5s ease both;}
+.slot:hover{transform:scale(1.06);z-index:2;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+.slot-id{font-family:'Orbitron',sans-serif;font-size:.68rem;font-weight:700;}
+.slot-type-badge{font-size:.52rem;letter-spacing:.5px;border-radius:3px;padding:1px 4px;font-weight:700;text-transform:uppercase;background:rgba(0,0,0,.3);}
+.slot-car{font-size:1.1rem;}
+.slot-ring{position:absolute;inset:-4px;border-radius:12px;border:2px solid currentColor;animation:ringPulse 1.5s ease-in-out infinite;opacity:.45;}
+.slot.available{background:rgba(0,255,136,.1);border-color:rgba(0,255,136,.4);color:var(--green);}
+.slot.occupied{background:rgba(255,51,102,.1);border-color:rgba(255,51,102,.4);color:var(--red);}
+.slot.reserved{background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.4);color:#3b82f6;}
+.slot.vip{background:rgba(168,85,247,.1);border-color:rgba(168,85,247,.4);color:#a855f7;}
+.slot.ev{background:rgba(249,115,22,.15);border-color:rgba(249,115,22,.45);color:#f97316;}
+.slot.handicap{background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.4);color:#fbbf24;}
+.slot.family{background:rgba(6,182,212,.1);border-color:rgba(6,182,212,.4);color:#06b6d4;}
+.slot.maintenance{background:rgba(107,114,128,.12);border-color:rgba(107,114,128,.4);color:#6b7280;}
+.slot.user-slot{box-shadow:0 0 16px rgba(0,245,255,.5);border-color:var(--cyan)!important;}
+.slot.flash{animation:slotFlash .5s ease;}
+
+/* CCTV canvas */
+.cctv-canvas-wrap{width:100%;aspect-ratio:16/9;background:#000;display:block;}
+canvas.cctv-canvas-wrap{display:block;}
+
+/* Slot strip */
+.slot-strip{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;margin-bottom:14px;}
+.slot-mini{flex-shrink:0;background:var(--card);border:1px solid var(--border);border-radius:9px;padding:9px 12px;min-width:120px;cursor:pointer;transition:all .3s;}
+.slot-mini:hover{border-color:var(--cyan);transform:translateY(-2px);}
+.slot-mini-id{font-family:'Orbitron',sans-serif;font-size:.88rem;font-weight:700;}
+.slot-mini-type{font-size:.68rem;color:var(--muted);}
+.slot-mini-status{font-size:.7rem;font-weight:600;margin-top:3px;}
+.slot-mini-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:3px;}
+
+/* MATLAB console */
+.matlab-console{background:#0d1117;border:1px solid rgba(255,170,0,.25);border-radius:10px;padding:12px 14px;font-family:'Courier New',monospace;font-size:.72rem;color:#e6db74;line-height:1.9;margin-top:14px;}
+.matlab-console .prompt{color:#66d9ef;}
+.matlab-console .output{color:#a6e22e;}
+.matlab-console .comment{color:#75715e;}
+
+/* ── RIGHT PANEL ────────────────────────────────── */
+.rp-card{background:rgba(0,12,32,.8);border:1px solid var(--border);border-radius:14px;padding:14px;}
+.rp-title{font-family:'Orbitron',sans-serif;font-size:.68rem;color:var(--cyan);letter-spacing:2px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:7px;}
+.booking-slot-num{font-family:'Orbitron',sans-serif;font-size:2.8rem;font-weight:900;color:var(--cyan);text-shadow:0 0 20px var(--cyan);text-align:center;line-height:1;}
+.booking-plate{font-family:'Orbitron',sans-serif;font-size:.75rem;color:var(--muted);text-align:center;margin-bottom:10px;letter-spacing:2px;}
+.booking-row{display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:5px;}
+.booking-row .label{color:var(--muted);}
+.booking-row .value{color:var(--text);font-weight:600;font-family:'Orbitron',sans-serif;font-size:.72rem;}
+.fee-big{font-family:'Orbitron',sans-serif;font-size:1.4rem;color:var(--amber);text-shadow:0 0 10px var(--amber);text-align:center;margin-top:7px;}
+.btn-directions{width:100%;margin-top:10px;padding:9px;background:none;border:1px solid var(--cyan);border-radius:7px;color:var(--cyan);font-family:'Orbitron',sans-serif;font-size:.68rem;letter-spacing:1px;cursor:pointer;transition:all .3s;}
+.btn-directions:hover{background:rgba(0,245,255,.08);}
+.notif-item{display:flex;align-items:flex-start;gap:7px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.notif-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+.notif-text{font-size:.78rem;color:var(--text);flex:1;line-height:1.4;}
+.notif-time{font-size:.65rem;color:var(--muted);white-space:nowrap;}
+.notif-dismiss{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.78rem;flex-shrink:0;padding:0;}
+.notif-dismiss:hover{color:var(--red);}
+
+/* Gauge */
+.gauge-wrap{display:flex;flex-direction:column;align-items:center;gap:7px;}
+.gauge-svg{width:110px;height:65px;overflow:visible;}
+.gauge-label{font-family:'Orbitron',sans-serif;font-size:1.3rem;font-weight:700;}
+.gauge-sub{font-size:.7rem;color:var(--muted);text-align:center;}
+
+/* ── MY BOOKING ─────────────────────────────────── */
+.booking-full-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;}
+.booking-slot-hero{text-align:center;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);}
+.bk-slot-big{font-family:'Orbitron',sans-serif;font-size:5rem;font-weight:900;color:var(--cyan);text-shadow:0 0 30px var(--cyan);line-height:1;}
+.bk-plate-big{font-family:'Orbitron',sans-serif;font-size:.9rem;color:var(--muted);letter-spacing:3px;}
+.booking-details-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.bk-detail{background:rgba(0,245,255,.04);border:1px solid var(--border);border-radius:10px;padding:12px;}
+.bk-detail-label{font-size:.65rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+.bk-detail-value{font-family:'Orbitron',sans-serif;font-size:.9rem;margin-top:3px;}
+.booking-mini-map{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-top:8px;}
+.bm-cell{aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.42rem;font-family:'Orbitron',sans-serif;border:1px solid rgba(255,255,255,.06);}
+
+/* ── ANALYTICS ──────────────────────────────────── */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;}
+.chart-title{font-family:'Orbitron',sans-serif;font-size:.72rem;color:var(--cyan);letter-spacing:2px;margin-bottom:14px;}
+.algo-compare{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.algo-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;}
+.algo-name{font-family:'Orbitron',sans-serif;font-size:.62rem;color:var(--muted);letter-spacing:1px;margin-bottom:7px;line-height:1.4;}
+.algo-result{font-family:'Orbitron',sans-serif;font-size:1.5rem;font-weight:700;color:var(--cyan);}
+.algo-check{font-size:.68rem;color:var(--green);margin-top:3px;}
+.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:14px;}
+.data-table{width:100%;border-collapse:collapse;}
+.data-table th{background:rgba(0,245,255,.05);padding:9px 12px;font-size:.68rem;color:var(--cyan);letter-spacing:1px;text-align:left;border-bottom:1px solid var(--border);}
+.data-table td{padding:9px 12px;font-size:.8rem;border-bottom:1px solid rgba(255,255,255,.04);}
+.data-table tr:last-child td{border-bottom:none;}
+.btn-download{padding:9px 22px;background:linear-gradient(135deg,var(--violet),#3b82f6);border:none;border-radius:7px;color:#fff;font-family:'Orbitron',sans-serif;font-size:.68rem;letter-spacing:1px;cursor:pointer;margin-bottom:14px;}
+
+/* ── LEADERBOARD ────────────────────────────────── */
+.lb-row{display:flex;align-items:center;gap:11px;padding:11px 14px;border-radius:10px;margin-bottom:7px;background:rgba(0,12,32,.5);border:1px solid rgba(255,255,255,.04);transition:all .3s;}
+.lb-row:hover{border-color:var(--border);}
+.lb-row.me{border-color:rgba(0,245,255,.35);background:rgba(0,245,255,.05);}
+.lb-rank{font-family:'Orbitron',sans-serif;font-size:.95rem;font-weight:700;width:26px;text-align:center;}
+.lb-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--violet),#3b82f6);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.82rem;flex-shrink:0;}
+.lb-info{flex:1;}
+.lb-name{font-weight:600;font-size:.88rem;}
+.lb-vehicle{font-size:.7rem;color:var(--muted);}
+.lb-score{font-family:'Orbitron',sans-serif;font-size:.78rem;color:var(--green);}
+.medal-gold{color:#ffd700;}
+.medal-silver{color:#c0c0c0;}
+.medal-bronze{color:#cd7f32;}
+
+/* ── ECO ────────────────────────────────────────── */
+.eco-hero-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;}
+.eco-hero{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center;}
+.eco-hero-num{font-family:'Orbitron',sans-serif;font-size:2.5rem;font-weight:900;}
+.eco-hero-unit{font-size:.72rem;color:var(--muted);margin-top:3px;}
+.eco-hero-label{font-size:.68rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+.eco-charts-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.eco-chart-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;}
+.eco-chart-title{font-family:'Orbitron',sans-serif;font-size:.68rem;color:var(--cyan);letter-spacing:2px;margin-bottom:12px;}
+.solar-heat-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.solar-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;}
+.solar-cell{aspect-ratio:1;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:.68rem;}
+.heat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;}
+.heat-cell{aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.52rem;font-family:'Orbitron',sans-serif;color:rgba(255,255,255,.6);}
+
+/* ── ALERTS / CHAT ──────────────────────────────── */
+.alerts-layout{display:grid;grid-template-columns:1fr 1fr;gap:14px;height:calc(100vh - 120px);}
+.alerts-left,.alerts-right{display:flex;flex-direction:column;gap:12px;overflow-y:auto;}
+.alert-log-item{display:flex;align-items:flex-start;gap:9px;padding:11px;background:rgba(255,51,102,.05);border:1px solid rgba(255,51,102,.18);border-radius:9px;}
+.emergency-btn{width:100%;padding:14px;background:linear-gradient(135deg,#7f0000,var(--red));border:2px solid var(--red);border-radius:12px;color:#fff;font-family:'Orbitron',sans-serif;font-size:.85rem;letter-spacing:2px;cursor:pointer;box-shadow:0 0 28px rgba(255,51,102,.35);transition:all .3s;}
+.emergency-btn:hover{box-shadow:0 0 45px rgba(255,51,102,.65);}
+.emergency-btn.active{animation:emergencyPulse 1s infinite;}
+.sms-log{background:#0d1117;border:1px solid rgba(0,255,136,.18);border-radius:10px;padding:12px;font-family:'Courier New',monospace;font-size:.72rem;color:var(--green);line-height:1.8;}
+/* Chat */
+.chat-panel{background:var(--card);border:1px solid var(--border);border-radius:14px;display:flex;flex-direction:column;height:100%;min-height:400px;}
+.chat-header{padding:12px 14px;border-bottom:1px solid var(--border);font-family:'Orbitron',sans-serif;font-size:.7rem;color:var(--cyan);letter-spacing:2px;display:flex;justify-content:space-between;align-items:center;}
+.chat-online{font-size:.65rem;color:var(--green);display:flex;align-items:center;gap:4px;}
+.chat-online::before{content:'';width:6px;height:6px;background:var(--green);border-radius:50%;box-shadow:0 0 5px var(--green);}
+.chat-feed{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;}
+.chat-bubble{max-width:80%;}
+.chat-bubble.received{align-self:flex-start;}
+.chat-bubble.sent{align-self:flex-end;}
+.chat-meta{font-size:.65rem;color:var(--muted);margin-bottom:4px;letter-spacing:.5px;}
+.chat-bubble.sent .chat-meta{text-align:right;}
+.chat-text{padding:9px 13px;border-radius:12px;font-size:.82rem;line-height:1.4;}
+.chat-bubble.received .chat-text{background:rgba(0,245,255,.07);border:1px solid rgba(0,245,255,.15);border-bottom-left-radius:3px;}
+.chat-bubble.sent .chat-text{background:rgba(124,58,237,.2);border:1px solid rgba(124,58,237,.35);border-bottom-right-radius:3px;text-align:right;}
+.chat-time{color:rgba(224,244,255,.35);}
+.chat-input-bar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--border);}
+.chat-input-bar input{flex:1;background:rgba(0,245,255,.04);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:.9rem;outline:none;}
+.chat-input-bar input:focus{border-color:var(--cyan);}
+.chat-send-btn{padding:8px 16px;background:linear-gradient(135deg,var(--violet),#3b82f6);border:none;border-radius:7px;color:#fff;font-family:'Orbitron',sans-serif;font-size:.68rem;letter-spacing:1px;cursor:pointer;white-space:nowrap;}
+.chat-file-btn{background:none;border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--muted);cursor:pointer;font-size:.9rem;transition:all .3s;}
+.chat-file-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+.file-input-hidden{display:none;}
+/* Chat message bubbles */
+.chat-msg{display:flex;margin-bottom:4px;}
+.chat-msg.sent{justify-content:flex-end;}
+.chat-msg.received{justify-content:flex-start;}
+.chat-bubble{max-width:78%;padding:9px 13px;border-radius:14px;font-size:.83rem;line-height:1.45;}
+.chat-msg.sent .chat-bubble{background:linear-gradient(135deg,rgba(124,58,237,.25),rgba(59,130,246,.2));border:1px solid rgba(124,58,237,.4);border-bottom-right-radius:3px;}
+.chat-msg.received .chat-bubble{background:rgba(0,245,255,.06);border:1px solid rgba(0,245,255,.15);border-bottom-left-radius:3px;}
+.chat-sender{font-size:.62rem;letter-spacing:.5px;margin-bottom:3px;font-family:'Orbitron',sans-serif;}
+.chat-msg.sent .chat-sender{color:#a78bfa;text-align:right;}
+.chat-msg.received .chat-sender{color:var(--amber);}
+.chat-text{color:var(--text);}
+.chat-time{font-size:.6rem;color:rgba(224,244,255,.3);margin-top:4px;}
+.chat-msg.sent .chat-time{text-align:right;}
+
+/* ── SETTINGS ───────────────────────────────────── */
+.settings-section{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px;}
+.settings-title{font-family:'Orbitron',sans-serif;font-size:.72rem;color:var(--cyan);letter-spacing:2px;margin-bottom:14px;}
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.toggle-label{font-size:.88rem;color:var(--text);}
+.toggle{width:42px;height:23px;background:rgba(255,255,255,.1);border-radius:12px;position:relative;cursor:pointer;transition:background .3s;}
+.toggle.on{background:var(--cyan);}
+.toggle::after{content:'';position:absolute;width:17px;height:17px;background:#fff;border-radius:50%;top:3px;left:3px;transition:transform .3s;box-shadow:0 1px 4px rgba(0,0,0,.4);}
+.toggle.on::after{transform:translateX(19px);}
+
+/* ── SLOT MODAL ─────────────────────────────────── */
+#slot-modal{position:fixed;inset:0;z-index:1500;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.78);backdrop-filter:blur(4px);}
+#slot-modal.active{display:flex;animation:fadeInUp .3s ease;}
+.slot-modal-card{width:min(440px,95vw);background:rgba(3,12,32,.98);backdrop-filter:blur(30px);border:1px solid var(--border);border-radius:20px;padding:28px;box-shadow:0 0 60px rgba(0,245,255,.1);}
+.smc-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;}
+.smc-close{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:7px;color:var(--muted);font-size:1rem;cursor:pointer;padding:6px 10px;transition:all .3s;}
+.smc-close:hover{border-color:var(--red);color:var(--red);}
+.smc-info{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;}
+.smc-row{background:rgba(0,245,255,.03);border-radius:8px;padding:9px 11px;border:1px solid rgba(0,245,255,.06);}
+.smc-row-label{font-size:.65rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+.smc-row-val{font-size:.88rem;font-weight:600;margin-top:2px;}
+.btn-reserve{width:100%;padding:13px;background:linear-gradient(135deg,var(--green),#00c9a7);border:none;border-radius:10px;color:#000;font-family:'Orbitron',sans-serif;font-size:.82rem;font-weight:900;letter-spacing:2px;cursor:pointer;transition:all .3s;margin-bottom:14px;}
+.btn-reserve:hover{box-shadow:0 0 18px rgba(0,255,136,.45);}
+.qr-wrap{margin-top:14px;text-align:center;}
+.qr-wrap canvas{border:3px solid var(--border);border-radius:7px;}
+.qr-label{font-size:.68rem;color:var(--muted);margin-top:5px;}
+
+/* ── TOAST ──────────────────────────────────────── */
+#toast-container{position:fixed;bottom:22px;right:22px;z-index:9998;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+.toast{background:rgba(0,12,32,.96);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:11px;padding:10px 14px;display:flex;align-items:center;gap:9px;min-width:240px;max-width:340px;animation:toastIn .4s ease;font-size:.82rem;pointer-events:all;}
+.toast.voice{border-color:rgba(0,255,136,.35);}
+.toast.warn{border-color:rgba(255,170,0,.35);}
+
+/* ── EMERGENCY OVERLAY ──────────────────────────── */
+#emergency-overlay{position:fixed;inset:0;z-index:3000;pointer-events:none;display:none;}
+#emergency-overlay.active{display:block;background:rgba(255,0,0,.07);animation:emergencyFlicker 1.5s infinite;}
+
+/* Section header */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;}
+.section-title{font-family:'Orbitron',sans-serif;font-size:.82rem;color:var(--cyan);letter-spacing:2px;}
+
+/* ── KEYFRAMES ──────────────────────────────────── */
+@keyframes fadeOut{to{opacity:0;visibility:hidden;}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:translateY(0);}}
+@keyframes logoPulse{0%,100%{text-shadow:0 0 40px var(--cyan),0 0 80px rgba(0,245,255,.4);}50%{text-shadow:0 0 60px var(--cyan),0 0 120px rgba(0,245,255,.6);}}
+@keyframes auroraShift{0%{background-position:0 50%;}100%{background-position:100% 50%;}}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+@keyframes scanMove{0%{top:0%;}100%{top:100%;}}
+@keyframes cornerPulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+@keyframes ovalPulse{0%,100%{border-color:rgba(0,245,255,.4);}50%{border-color:rgba(0,245,255,.1);}}
+@keyframes ringPulse{0%{opacity:.45;transform:scale(1);}50%{opacity:.1;transform:scale(1.12);}100%{opacity:.45;transform:scale(1);}}
+@keyframes slotIn{from{opacity:0;transform:scale(.82);}to{opacity:1;transform:scale(1);}}
+@keyframes slotFlash{0%{filter:brightness(3);}100%{filter:brightness(1);}}
+@keyframes greenFlash{0%,100%{opacity:0;}50%{opacity:1;background:rgba(0,255,136,.25);}}
+@keyframes redFlash{0%,100%{opacity:0;}50%{opacity:1;background:rgba(255,51,102,.25);}}
+@keyframes shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-10px);}40%{transform:translateX(10px);}60%{transform:translateX(-7px);}80%{transform:translateX(7px);}}
+@keyframes toastIn{from{opacity:0;transform:translateX(35px);}to{opacity:1;transform:translateX(0);}}
+@keyframes emergencyPulse{0%,100%{box-shadow:0 0 28px rgba(255,51,102,.4);}50%{box-shadow:0 0 55px rgba(255,51,102,.75);}}
+@keyframes emergencyFlicker{0%,100%{opacity:.5;}50%{opacity:1;}}
+@keyframes arrowEntryPulse{0%,100%{transform:translateY(0);}50%{transform:translateY(4px);}}
+@keyframes arrowExitPulse{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
+
+/* Responsive */
+@media(max-width:1200px){#right-panel{display:none;}.stats-row{grid-template-columns:repeat(2,1fr);}.cctv-split{grid-template-columns:1fr;}}
+@media(max-width:768px){#sidebar{display:none;}.stats-row{grid-template-columns:repeat(2,1fr);}.chart-grid,.eco-charts-row,.alerts-layout{grid-template-columns:1fr;}.algo-compare{grid-template-columns:1fr;}.row-label{display:none;}}
+
+</style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+
+  <!-- ═══ BOOT ═══════════════════════════════════════════════ -->
+  <div id="boot-screen">
+    <div class="boot-logo">SmartPark AI</div>
+    <div class="boot-sub">Intelligent Parking Indication System &nbsp;|&nbsp; Powered by MATLAB Image Processing</div>
+    <div class="boot-bar-wrap">
+      <div class="boot-bar" id="boot-bar"></div>
+    </div>
+    <div class="boot-label" id="boot-label">Initializing MATLAB Core Engine...</div>
+  </div>
+
+  <!-- ═══ LOGIN ═══════════════════════════════════════════════ -->
+  <div id="login-screen">
+    <canvas id="particle-canvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;"></canvas>
+    <div class="auth-card">
+      <div class="auth-logo">SmartPark AI</div>
+      <div class="auth-tagline">Intelligent Parking Indication System</div>
+      <div class="tab-strip">
+        <button class="tab-btn active" data-tab="login" onclick="switchTab('login')">Login</button>
+        <button class="tab-btn" data-tab="register" onclick="switchTab('register')">Create Account</button>
+      </div>
+      <!-- LOGIN -->
+      <div class="tab-pane active" id="tab-login">
+        <div class="field"><label>Email</label><input type="email" id="login-email" value="arjun@smartpark.in" /></div>
+        <div class="field"><label>Password</label><input type="password" id="login-pass" value="password" /></div>
+        <button class="btn-scan" onclick="openFaceScan()">🔍 FACE SCAN LOGIN</button>
+        <button class="btn-primary" onclick="quickLogin()"
+          style="background:linear-gradient(135deg,#1e3a5f,#0f4c81);">📧 EMAIL LOGIN</button>
+        <div class="matlab-badge">Detection Engine: MATLAB Otsu Threshold v2.1 &nbsp;|&nbsp; Eigenface Auth v3.0</div>
+        <div class="link-text" onclick="switchTab('register')">New here? <span>Create Account</span></div>
+      </div>
+      <!-- REGISTER -->
+      <div class="tab-pane" id="tab-register">
+        <div class="wizard-steps">
+          <div class="step-dot active"></div>
+          <div class="step-dot"></div>
+          <div class="step-dot"></div>
+        </div>
+        <div class="wizard-step active" id="ws-1">
+          <div class="field"><label>Full Name</label><input type="text" id="w-name" value="Arjun Sharma" /></div>
+          <div class="field"><label>Email</label><input type="email" id="w-email" value="arjun@smartpark.in" /></div>
+          <div class="field"><label>Phone</label><input type="tel" id="w-phone" placeholder="+91 98765 43210" /></div>
+          <div class="field"><label>Vehicle Number</label><input type="text" id="w-plate" value="MH12AB3456" /></div>
+          <div class="field"><label>Vehicle Type</label><select id="w-vtype">
+              <option>Car</option>
+              <option selected>SUV</option>
+              <option>Motorcycle</option>
+              <option>EV</option>
+            </select></div>
+          <div class="field"><label>Password</label><input type="password" placeholder="••••••••" /></div>
+          <button class="btn-primary" onclick="goWizard(2);startRegCam()">Next →</button>
+        </div>
+        <div class="wizard-step" id="ws-2">
+          <div
+            style="text-align:center;margin-bottom:12px;font-family:'Orbitron',sans-serif;font-size:.78rem;color:var(--cyan);letter-spacing:2px;">
+            REGISTER BIOMETRIC ACCESS</div>
+          <div class="webcam-box" style="margin-bottom:10px;">
+            <video id="reg-video" autoplay muted playsinline></video>
+            <img id="reg-captured"
+              style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:10px;" />
+            <canvas id="reg-canvas" style="display:none;"></canvas>
+            <div class="scan-overlay">
+              <div class="scan-line"></div>
+              <div class="corner tl"></div>
+              <div class="corner tr"></div>
+              <div class="corner bl"></div>
+              <div class="corner br"></div>
+            </div>
+          </div>
+          <div id="reg-face-status" style="text-align:center;font-size:.78rem;color:var(--muted);margin-bottom:9px;">
+            Click to capture face</div>
+          <button class="btn-scan" onclick="captureRegFace()" style="margin-bottom:7px;">📸 CAPTURE FACE</button>
+          <button class="btn-primary" onclick="completeWizard()">Next →</button>
+        </div>
+        <div class="wizard-step" id="ws-3">
+          <div
+            style="text-align:center;margin-bottom:14px;font-family:'Orbitron',sans-serif;font-size:.78rem;color:var(--green);letter-spacing:2px;">
+            ✓ ACCOUNT CREATED</div>
+          <div
+            style="background:rgba(0,245,255,.05);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <img id="confirm-face"
+                style="display:none;width:52px;height:52px;border-radius:50%;border:2px solid var(--cyan);object-fit:cover;" />
+              <div
+                style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--violet),#3b82f6);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:700;">
+                AS</div>
+              <div>
+                <div id="confirm-name" style="font-weight:700;">Arjun Sharma</div>
+                <div id="confirm-vehicle" style="font-size:.78rem;color:var(--muted);">SUV — MH12AB3456</div>
+                <div style="font-size:.7rem;color:var(--green);margin-top:2px;">✓ Face Registered</div>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:.78rem;color:var(--muted);text-align:center;margin-bottom:12px;">Account created. Use
+            Face Scan to enter SmartPark.</div>
+          <button class="btn-scan" onclick="openFaceScan()">🚀 ENTER SMARTPARK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ FACE SCAN MODAL ═════════════════════════════════════ -->
+  <div id="face-scan-modal">
+    <div class="hex-bg"></div>
+    <div class="scan-modal-card">
+      <div class="modal-flash" id="modal-flash"></div>
+      <div class="scan-modal-title">BIOMETRIC VERIFICATION — SMARTPARK AI</div>
+      <div class="scan-modal-sub">Face recognition powered by MATLAB Computer Vision Toolbox</div>
+      <div class="scan-webcam">
+        <video id="scan-video" autoplay muted playsinline></video>
+        <div class="scan-overlay">
+          <div class="scan-line"></div>
+          <div class="corner tl"></div>
+          <div class="corner tr"></div>
+          <div class="corner bl"></div>
+          <div class="corner br"></div>
+          <div class="face-oval"></div>
+        </div>
+      </div>
+      <div class="scan-status" id="scan-status">Align your face with the frame...</div>
+      <div class="scan-controls">
+        <button class="btn-scan" onclick="initiateScan()" style="flex:1;max-width:220px;">⚡ INITIATE FACE SCAN</button>
+        <button class="btn-fail" onclick="simulateFail()">Simulate Fail</button>
+        <button class="btn-fail" onclick="closeScanModal()">✕ Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ APP SHELL ════════════════════════════════════════════ -->
+  <div id="app-shell">
+    <!-- NAV -->
+    <nav id="top-nav">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="nav-logo">SmartPark AI</div>
+        <div class="nav-online">ONLINE</div>
+      </div>
+      <div class="nav-center">
+        <div class="nav-clock" id="nav-clock">--:--:--</div>
+        <div class="nav-date" id="nav-date"></div>
+      </div>
+      <div class="nav-right">
+        <div class="matlab-nav-badge">MATLAB R2024a | CV Active</div>
+        <div class="nav-user-info">
+          <div class="nav-user-name" id="nav-name">Arjun Sharma</div>
+          <div class="nav-plate" id="nav-plate">MH12AB3456</div>
+        </div>
+        <div class="nav-avatar" id="nav-avatar">AS</div>
+        <button class="nav-icon-btn" id="nav-voice-btn" onclick="toggleVoice()" title="Toggle Voice Announcements">🔊</button>
+        <button class="nav-icon-btn" title="Notifications">🔔<span class="nav-badge">5</span></button>
+        <button class="nav-icon-btn" onclick="switchView('settings')" title="Settings">⚙️</button>
+      </div>
+    </nav>
+
+    <div id="body-layout">
+      <!-- SIDEBAR -->
+      <aside id="sidebar">
+        <div class="sidebar-item active" data-view="dashboard" onclick="switchView('dashboard')"><span
+            class="sidebar-icon">🏠</span><span class="sidebar-label">Dashboard</span></div>
+        <div class="sidebar-item" data-view="cctv" onclick="switchView('cctv')"><span
+            class="sidebar-icon">📹</span><span class="sidebar-label">Live CCTV</span></div>
+        <div class="sidebar-item" data-view="booking" onclick="switchView('booking')"><span
+            class="sidebar-icon">🎫</span><span class="sidebar-label">My Booking</span></div>
+        <div class="sidebar-item" data-view="analytics" onclick="switchView('analytics')"><span
+            class="sidebar-icon">📊</span><span class="sidebar-label">Analytics</span></div>
+        <div class="sidebar-item" data-view="leaderboard" onclick="switchView('leaderboard')"><span
+            class="sidebar-icon">🏆</span><span class="sidebar-label">Leaderboard</span></div>
+        <div class="sidebar-item" data-view="eco" onclick="switchView('eco')"><span class="sidebar-icon">🌿</span><span
+            class="sidebar-label">Eco Report</span></div>
+        <div class="sidebar-item" data-view="alerts" onclick="switchView('alerts');setTimeout(renderChat,100)"><span
+            class="sidebar-icon">🚨</span><span class="sidebar-label">Alerts</span></div>
+        <div class="sidebar-item" data-view="settings" onclick="switchView('settings')"><span
+            class="sidebar-icon">⚙️</span><span class="sidebar-label">Settings</span></div>
+        <div class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">☰</div>
+      </aside>
+
+      <!-- MAIN -->
+      <main id="main-content">
+
+        <!-- ── DASHBOARD ── -->
+        <div class="view active" id="view-dashboard">
+          <div class="stats-row">
+            <div class="stat-card" style="animation-delay:.05s">
+              <div class="stat-label">Total Slots</div>
+              <div class="stat-num total">16</div>
+            </div>
+            <div class="stat-card" style="animation-delay:.1s">
+              <div class="stat-label">Available</div>
+              <div class="stat-num available" id="stat-available">0</div>
+            </div>
+            <div class="stat-card" style="animation-delay:.15s">
+              <div class="stat-label">Occupied</div>
+              <div class="stat-num occupied" id="stat-occupied">0</div>
+            </div>
+            <div class="stat-card" style="animation-delay:.2s">
+              <div class="stat-label">Reserved</div>
+              <div class="stat-num reserved" id="stat-reserved">0</div>
+            </div>
+          </div>
+
+          <!-- CCTV Split -->
+          <div class="cctv-split">
+            <!-- Panel A: Directional Parking Map -->
+            <div class="glass-panel">
+              <div class="panel-header">
+                <div class="panel-title">📍 LIVE PARKING MAP — MATLAB Processing Active</div>
+                <div class="live-badge">
+                  <div class="live-dot"></div>LIVE
+                </div>
+              </div>
+              <div id="parking-map-wrapper">
+                <!-- Entry indicator -->
+                <div class="map-entry-indicator">
+                  <span class="arrow-anim">▼▼▼</span>
+                  <span>VEHICLE ENTRY GATE — Gate A</span>
+                  <span class="arrow-anim">▼▼▼</span>
+                </div>
+                <!-- Map rows rendered by JS -->
+                <div id="parking-map"></div>
+                <!-- Exit indicator -->
+                <div class="map-exit-indicator">
+                  <span class="arrow-anim">▲▲▲</span>
+                  <span>VEHICLE EXIT GATE — Gate B</span>
+                  <span class="arrow-anim">▲▲▲</span>
+                </div>
+              </div>
+              <div class="panel-algo">im2gray() → Otsu threshold → bwlabel() → regionprops() | edgeDensity.m |
+                shadowRemoval.m</div>
+            </div>
+
+            <!-- Panel B: Animated CCTV Canvas -->
+            <div class="glass-panel">
+              <div class="panel-header">
+                <div class="panel-title">📷 CCTV FEED — Gate Camera | LIVE</div>
+                <div class="live-badge">
+                  <div class="live-dot"></div>REC
+                </div>
+              </div>
+              <canvas id="cctv-canvas-1" class="cctv-canvas-wrap"
+                style="width:100%;height:auto;aspect-ratio:16/9;display:block;"></canvas>
+              <div class="panel-algo">IP Camera 192.168.1.101 | 1080p | 30 FPS | H.264</div>
+            </div>
+          </div>
+
+          <!-- Slot strip -->
+          <div class="section-header">
+            <div class="section-title">SLOT OVERVIEW</div>
+            <div style="font-size:.7rem;color:var(--muted);">Click any slot for details & reservation</div>
+          </div>
+          <div id="slot-strip" class="slot-strip"></div>
+
+          <!-- MATLAB Console -->
+          <div class="matlab-console">
+            <div class="comment">% SmartPark AI — MATLAB CV Engine</div>
+            <div><span class="prompt">&gt;&gt; </span>detectSlots('parking_feed.jpg')</div>
+            <div class="output">Loaded: 1280x720 px | im2gray() → Otsu T=0.412</div>
+            <div class="output">bwlabel(): 16 regions | regionprops() complete</div>
+            <div class="output" id="matlab-occupied">Occupied: 6 | Empty: 9 | Reserved: 1</div>
+            <div class="output">Confidence: 97.3% | Processing: 43ms</div>
+            <div class="comment">% edgeDensity.m | shadowRemoval.m | nightMode.m</div>
+          </div>
+        </div>
+
+        <!-- ── CCTV VIEW ── -->
+        <div class="view" id="view-cctv">
+          <div class="section-header" style="margin-bottom:14px;">
+            <div class="section-title">MULTI-CAMERA SURVEILLANCE</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div class="glass-panel">
+              <div class="panel-header">
+                <div class="panel-title">📷 Camera 1 — Entry Gate A</div>
+                <div class="live-badge">
+                  <div class="live-dot"></div>LIVE
+                </div>
+              </div><canvas id="cctv-canvas-2" class="cctv-canvas-wrap"
+                style="width:100%;aspect-ratio:16/9;display:block;"></canvas>
+              <div class="panel-algo">192.168.1.101 | 1080p | 30 FPS</div>
+            </div>
+            <div class="glass-panel">
+              <div class="panel-header">
+                <div class="panel-title">📷 Camera 2 — Zone A (Row 1-2)</div>
+                <div class="live-badge">
+                  <div class="live-dot"></div>LIVE
+                </div>
+              </div><canvas id="cctv-canvas-3" class="cctv-canvas-wrap"
+                style="width:100%;aspect-ratio:16/9;display:block;"></canvas>
+              <div class="panel-algo">192.168.1.102 | 720p | 25 FPS</div>
+            </div>
+            <div class="glass-panel">
+              <div class="panel-header">
+                <div class="panel-title">📷 Camera 3 — Zone B (Row 3-4)</div>
+                <div class="live-badge" style="background:rgba(107,114,128,.18);border-color:rgba(107,114,128,.45);">
+                  <div class="live-dot" style="background:#6b7280;animation:none;"></div>OFFLINE
+                </div>
+              </div>
+              <div
+                style="width:100%;aspect-ratio:16/9;background:#0a0a0a;display:flex;align-items:center;justify-content:center;">
+                <div style="text-align:center;color:var(--muted);">
+                  <div style="font-size:2rem;">📵</div>
+                  <div style="font-size:.78rem;margin-top:7px;">Camera Offline</div>
+                  <div style="font-size:.68rem;color:rgba(255,51,102,.6);">Reconnecting...</div>
+                </div>
+              </div>
+              <div class="panel-algo">192.168.1.103 | DISCONNECTED</div>
+            </div>
+            <div class="glass-panel">
+              <div class="panel-header">
+                <div class="panel-title">📷 Camera 4 — Exit Gate B</div>
+                <div class="live-badge">
+                  <div class="live-dot"></div>LIVE
+                </div>
+              </div><canvas id="cctv-canvas-4" class="cctv-canvas-wrap"
+                style="width:100%;aspect-ratio:16/9;display:block;"></canvas>
+              <div class="panel-algo">192.168.1.104 | 1080p | 30 FPS</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── MY BOOKING ── -->
+        <div class="view" id="view-booking">
+          <div class="section-header" style="margin-bottom:14px;">
+            <div class="section-title">MY ACTIVE BOOKING</div>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;">
+            <div class="booking-full-card">
+              <div class="booking-slot-hero">
+                <div style="font-size:.68rem;color:var(--muted);letter-spacing:2px;margin-bottom:4px;">ASSIGNED SLOT
+                </div>
+                <div class="bk-slot-big" id="bk-slot-num">S3</div>
+                <div class="bk-plate-big" id="bk-plate">MH12AB3456</div>
+                <div style="font-size:.72rem;color:var(--muted);margin-top:4px;">Zone A — Row 1, near Entry Gate</div>
+              </div>
+              <div class="booking-details-grid">
+                <div class="bk-detail">
+                  <div class="bk-detail-label">Vehicle Type</div>
+                  <div class="bk-detail-value" id="bk-type" style="color:var(--cyan);">SUV</div>
+                </div>
+                <div class="bk-detail">
+                  <div class="bk-detail-label">Zone</div>
+                  <div class="bk-detail-value" id="bk-status-type" style="color:var(--text);">Zone A — Regular</div>
+                </div>
+                <div class="bk-detail">
+                  <div class="bk-detail-label">Entry Time</div>
+                  <div class="bk-detail-value" id="booking-entry-display" style="color:var(--amber);">Loading...</div>
+                </div>
+                <div class="bk-detail">
+                  <div class="bk-detail-label">Duration</div>
+                  <div class="bk-detail-value" id="booking-duration" style="color:var(--green);">00:00:00</div>
+                </div>
+                <div class="bk-detail" style="border-color:rgba(255,170,0,.3);background:rgba(255,170,0,.04);">
+                  <div class="bk-detail-label" style="color:var(--amber);">Estimated Fee</div>
+                  <div class="bk-detail-value" id="booking-fee" style="color:var(--amber);font-size:1.4rem;">₹15</div>
+                </div>
+                <div class="bk-detail" style="border-color:rgba(0,255,136,.3);background:rgba(0,255,136,.04);">
+                  <div class="bk-detail-label" style="color:var(--green);">Status</div>
+                  <div class="bk-detail-value" style="color:var(--green);">ACTIVE ✓</div>
+                </div>
+              </div>
+              <button class="btn-directions" onclick="showDirections()">🧭 GET DIRECTIONS TO SLOT</button>
+              <button class="btn-fail" style="width:100%;margin-top:10px;" onclick="cancelBooking()">✕ CANCEL BOOKING</button>
+            </div>
+            <!-- Mini Map -->
+            <div class="glass-panel" style="padding:14px;">
+              <div
+                style="font-family:'Orbitron',sans-serif;font-size:.68rem;color:var(--cyan);letter-spacing:2px;margin-bottom:10px;">
+                SLOT MAP — Your Position</div>
+              <div style="font-size:.65rem;color:var(--green);margin-bottom:6px;text-align:center;">▼ ENTRY</div>
+              <div class="booking-mini-map" id="booking-mini-map"></div>
+              <div style="font-size:.65rem;color:var(--red);margin-top:6px;text-align:center;">▲ EXIT</div>
+              <div style="margin-top:10px;display:flex;gap:8px;flex-direction:column;">
+                <div style="display:flex;align-items:center;gap:5px;font-size:.68rem;">
+                  <div style="width:10px;height:10px;border-radius:2px;background:rgba(0,245,255,.4);"></div>Your Slot
+                  (S3)
+                </div>
+                <div style="display:flex;align-items:center;gap:5px;font-size:.68rem;">
+                  <div style="width:10px;height:10px;border-radius:2px;background:rgba(255,51,102,.4);"></div>Occupied
+                </div>
+                <div style="display:flex;align-items:center;gap:5px;font-size:.68rem;">
+                  <div style="width:10px;height:10px;border-radius:2px;background:rgba(0,255,136,.3);"></div>Available
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── ANALYTICS ── -->
+        <div class="view" id="view-analytics">
+          <div class="section-header" style="margin-bottom:14px;">
+            <div class="section-title">SYSTEM ANALYTICS</div>
+            <div style="font-size:.68rem;color:var(--amber);">pdfReport.m | MATLAB R2024a</div>
+          </div>
+          <div class="chart-grid">
+            <div class="chart-card">
+              <div class="chart-title">PEAK HOUR OCCUPANCY</div>
+              <div style="height:190px;"><canvas id="peak-chart"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">SLOT TYPE DISTRIBUTION</div>
+              <div style="height:190px;"><canvas id="pie-chart"></canvas></div>
+            </div>
+          </div>
+          <div class="section-header" style="margin-bottom:10px;">
+            <div class="section-title">ALGORITHM COMPARISON</div>
+          </div>
+          <div class="algo-compare">
+            <div class="algo-card">
+              <div class="algo-name">METHOD 1<br />Mean Brightness</div>
+              <div class="algo-result">7</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:3px;">Occupied</div>
+              <div style="font-size:.62rem;color:var(--muted);margin-top:4px;">Accuracy: 82%</div>
+            </div>
+            <div class="algo-card" style="border-color:rgba(0,255,136,.35);background:rgba(0,255,136,.03);">
+              <div class="algo-name" style="color:var(--green);">METHOD 2<br />Otsu Threshold ✓</div>
+              <div class="algo-result" style="color:var(--green);">7</div>
+              <div style="font-size:.7rem;color:var(--green);margin-top:3px;">Occupied</div>
+              <div class="algo-check">✓ Most Accurate — 97.3%</div>
+            </div>
+            <div class="algo-card">
+              <div class="algo-name">METHOD 3<br />Edge Density</div>
+              <div class="algo-result">6</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:3px;">Occupied</div>
+              <div style="font-size:.62rem;color:var(--muted);margin-top:4px;">Accuracy: 89%</div>
+            </div>
+          </div>
+          <div class="section-header" style="margin-bottom:10px;">
+            <div class="section-title">RECENT ACTIVITY LOG</div><button class="btn-download" onclick="downloadCSV()">⬇
+              CSV</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table" id="analytics-log-table">
+              <thead>
+                <tr>
+                  <th>Slot</th>
+                  <th>Vehicle</th>
+                  <th>Type</th>
+                  <th>Entry</th>
+                  <th>Exit</th>
+                  <th>Duration</th>
+                  <th>Fee</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>S1</td>
+                  <td>MH04CD7890</td>
+                  <td>Car</td>
+                  <td>08:15</td>
+                  <td>09:00</td>
+                  <td>45 min</td>
+                  <td>₹45</td>
+                </tr>
+                <tr>
+                  <td style="color:var(--cyan);">S3</td>
+                  <td style="color:var(--cyan);">MH12AB3456</td>
+                  <td>SUV</td>
+                  <td>09:30</td>
+                  <td>—</td>
+                  <td style="color:var(--green);">Active ●</td>
+                  <td style="color:var(--amber);">Live</td>
+                </tr>
+                <tr>
+                  <td>S4</td>
+                  <td>MH09EF1122</td>
+                  <td>Bike</td>
+                  <td>10:05</td>
+                  <td>10:17</td>
+                  <td>12 min</td>
+                  <td>₹12</td>
+                </tr>
+                <tr>
+                  <td>S7</td>
+                  <td>KA05XY2233</td>
+                  <td>EV</td>
+                  <td>07:00</td>
+                  <td>10:30</td>
+                  <td>210 min</td>
+                  <td>₹0</td>
+                </tr>
+                <tr>
+                  <td style="color:var(--red);">S10 ⚠</td>
+                  <td>MH14GH5566</td>
+                  <td>Car</td>
+                  <td>07:50</td>
+                  <td>—</td>
+                  <td style="color:var(--red);">130 min OVERSTAY</td>
+                  <td>₹130</td>
+                </tr>
+                <tr>
+                  <td>S15</td>
+                  <td>MH22IJ9900</td>
+                  <td>SUV</td>
+                  <td>09:30</td>
+                  <td>10:00</td>
+                  <td>30 min</td>
+                  <td>₹30</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;">
+            <div class="chart-title">LAYOUT OPTIMIZER — MATLAB OUTPUT</div>
+            <div style="color:var(--muted);font-size:.85rem;line-height:1.9;">
+              <div>✅ <strong style="color:var(--text);">Efficiency Score:</strong> <span
+                  style="font-family:'Orbitron',sans-serif;color:var(--cyan);font-size:1.2rem;">84/100</span></div>
+              <div>💡 <strong style="color:var(--text);">Recommendation:</strong> Relocate Row D slots 2-3 to EV
+                charging (+12% EV adoption).</div>
+              <div>📊 <strong style="color:var(--text);">Bottleneck:</strong> Row B peaks at 94% occupancy 9–11am.
+                Redirect to overflow Level 2.</div>
+              <div>🔧 <span style="color:var(--amber);">layoutOptimizer.m v2.3 | MATLAB R2024a</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── LEADERBOARD ── -->
+        <div class="view" id="view-leaderboard">
+          <div class="section-header" style="margin-bottom:18px;">
+            <div class="section-title">🏆 SMARTPARK CHAMPIONS — ECO DRIVERS</div>
+          </div>
+          <div id="leaderboard-list"></div>
+        </div>
+
+        <!-- ── ECO REPORT ── -->
+        <div class="view" id="view-eco">
+          <div class="section-header" style="margin-bottom:14px;">
+            <div class="section-title">🌿 ECO INTELLIGENCE REPORT</div>
+            <div style="font-size:.68rem;color:var(--amber);">carbonCalc.m | MATLAB R2024a</div>
+          </div>
+          <!-- Hero metrics -->
+          <div class="eco-hero-row">
+            <div class="eco-hero">
+              <div class="eco-hero-label">CO₂ Saved — Session</div>
+              <div class="eco-hero-num" style="color:var(--green);">2.3</div>
+              <div class="eco-hero-unit">kg CO₂ vs city average</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:6px;">🌳 = 0.2 trees planted</div>
+            </div>
+            <div class="eco-hero">
+              <div class="eco-hero-label">Monthly Total</div>
+              <div class="eco-hero-num" style="color:var(--cyan);">18.7</div>
+              <div class="eco-hero-unit">kg CO₂ this month</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:6px;">🏆 Top 15% of all users</div>
+            </div>
+            <div class="eco-hero">
+              <div class="eco-hero-label">Eco Score</div>
+              <div class="eco-hero-num" style="color:var(--amber);">76</div>
+              <div class="eco-hero-unit">/ 100 points</div>
+              <div style="font-size:.7rem;color:var(--muted);margin-top:6px;">📈 +8 pts this week</div>
+            </div>
+          </div>
+          <!-- Charts -->
+          <div class="eco-charts-row">
+            <div class="eco-chart-card">
+              <div class="eco-chart-title">WEEKLY CO₂ SAVINGS TREND</div>
+              <div style="height:180px;"><canvas id="eco-weekly-chart"></canvas></div>
+            </div>
+            <div class="eco-chart-card">
+              <div class="eco-chart-title">SESSION vs CITY AVERAGE (kg CO₂)</div>
+              <div style="height:180px;"><canvas id="eco-co2-bar"></canvas></div>
+            </div>
+          </div>
+          <!-- Solar + Heat -->
+          <div class="solar-heat-row">
+            <div class="eco-chart-card">
+              <div class="eco-chart-title">SOLAR ZONE MAP</div>
+              <div class="solar-grid">
+                <div class="solar-cell" style="background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);">☀️
+                </div>
+                <div class="solar-cell" style="background:rgba(96,165,250,.2);border:1px solid rgba(96,165,250,.3);">🌤️
+                </div>
+                <div class="solar-cell" style="background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);">☀️
+                </div>
+                <div class="solar-cell" style="background:rgba(59,130,246,.2);border:1px solid rgba(59,130,246,.3);">🌑
+                </div>
+                <div class="solar-cell" style="background:rgba(96,165,250,.2);border:1px solid rgba(96,165,250,.3);">🌤️
+                </div>
+                <div class="solar-cell" style="background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);">☀️
+                </div>
+                <div class="solar-cell" style="background:rgba(59,130,246,.2);border:1px solid rgba(59,130,246,.3);">🌑
+                </div>
+                <div class="solar-cell" style="background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);">☀️
+                </div>
+                <div class="solar-cell" style="background:rgba(59,130,246,.2);border:1px solid rgba(59,130,246,.3);">🌑
+                </div>
+                <div class="solar-cell" style="background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);">☀️
+                </div>
+                <div class="solar-cell" style="background:rgba(96,165,250,.2);border:1px solid rgba(96,165,250,.3);">🌤️
+                </div>
+                <div class="solar-cell" style="background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);">☀️
+                </div>
+                <div class="solar-cell" style="background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);">☀️
+                </div>
+                <div class="solar-cell" style="background:rgba(96,165,250,.2);border:1px solid rgba(96,165,250,.3);">🌤️
+                </div>
+                <div class="solar-cell" style="background:rgba(251,191,36,.2);border:1px solid rgba(251,191,36,.3);">☀️
+                </div>
+                <div class="solar-cell" style="background:rgba(59,130,246,.2);border:1px solid rgba(59,130,246,.3);">🌑
+                </div>
+              </div>
+              <div style="margin-top:8px;font-size:.68rem;color:var(--muted);">☀️ Direct sun &nbsp;🌤️ Partial &nbsp;🌑
+                Shade</div>
+            </div>
+            <div class="eco-chart-card">
+              <div class="eco-chart-title">HEAT ISLAND SIMULATION</div>
+              <div class="heat-grid">
+                <div class="heat-cell" style="background:#1e40af;">S1</div>
+                <div class="heat-cell" style="background:#2563eb;">S2</div>
+                <div class="heat-cell" style="background:#3b82f6;">S3</div>
+                <div class="heat-cell" style="background:#60a5fa;">S4</div>
+                <div class="heat-cell" style="background:#2563eb;">S5</div>
+                <div class="heat-cell" style="background:#7c3aed;">S6</div>
+                <div class="heat-cell" style="background:#dc2626;">S7</div>
+                <div class="heat-cell" style="background:#ef4444;">S8</div>
+                <div class="heat-cell" style="background:#1d4ed8;">S9</div>
+                <div class="heat-cell" style="background:#dc2626;">S10</div>
+                <div class="heat-cell" style="background:#b91c1c;">S11</div>
+                <div class="heat-cell" style="background:#ef4444;">S12</div>
+                <div class="heat-cell" style="background:#3b82f6;">S13</div>
+                <div class="heat-cell" style="background:#60a5fa;">S14</div>
+                <div class="heat-cell" style="background:#93c5fd;">S15</div>
+                <div class="heat-cell" style="background:#bfdbfe;">S16</div>
+              </div>
+              <div style="margin-top:8px;font-size:.68rem;color:var(--muted);">🔵 Cool (&lt;28°C) &nbsp;🟣 Warm &nbsp;🔴
+                Hot (&gt;38°C)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── ALERTS ── -->
+        <div class="view" id="view-alerts">
+          <div class="section-header" style="margin-bottom:14px;">
+            <div class="section-title">⚠ ALERTS & COMMAND CENTRE</div>
+          </div>
+          <div class="alerts-layout">
+            <!-- LEFT: Controls + Anomaly Log -->
+            <div class="alerts-left">
+              <button class="emergency-btn" id="emergency-btn" onclick="toggleEmergency()">🚨 ACTIVATE EMERGENCY
+                MODE</button>
+              <div class="glass-panel" style="padding:14px;">
+                <div
+                  style="font-family:'Orbitron',sans-serif;font-size:.68rem;color:var(--red);letter-spacing:2px;margin-bottom:10px;">
+                  ANOMALY LOG</div>
+                <div class="alert-log-item">
+                  <div style="font-size:1.1rem;">🚗</div>
+                  <div>
+                    <div style="font-weight:600;font-size:.85rem;">Abandoned Vehicle — S10</div>
+                    <div style="font-size:.7rem;color:var(--muted);">MH14GH5566 | 2h 10 min overstay</div>
+                    <div style="font-size:.65rem;color:var(--red);">anomalyDetect.m triggered</div>
+                  </div>
+                </div>
+                <div class="alert-log-item" style="margin-top:8px;">
+                  <div style="font-size:1.1rem;">🎥</div>
+                  <div>
+                    <div style="font-weight:600;font-size:.85rem;">Camera 3 Offline</div>
+                    <div style="font-size:.7rem;color:var(--muted);">Zone B | IP: 192.168.1.103</div>
+                    <div style="font-size:.65rem;color:var(--amber);">Auto-restart pending</div>
+                  </div>
+                </div>
+                <div class="alert-log-item" style="margin-top:8px;">
+                  <div style="font-size:1.1rem;">⚡</div>
+                  <div>
+                    <div style="font-weight:600;font-size:.85rem;">80% Capacity Alert</div>
+                    <div style="font-size:.7rem;color:var(--muted);">Peak hour surge — 9:15 AM</div>
+                    <div style="font-size:.65rem;color:var(--amber);">SMS + Email dispatched</div>
+                  </div>
+                </div>
+              </div>
+              <div class="glass-panel" style="padding:14px;">
+                <div
+                  style="font-family:'Orbitron',sans-serif;font-size:.68rem;color:var(--green);letter-spacing:2px;margin-bottom:10px;">
+                  SMS / WHATSAPP LOG</div>
+                <div class="sms-log">
+                  <span style="color:var(--cyan);">[SMS]</span> → +91-98765-43210<br />
+                  <span style="color:var(--amber);">SmartPark:</span> Slot S3 reserved.<br />
+                  ParkID: SP2024-3456 | Fee: ₹45<br /><br />
+                  <span style="color:var(--cyan);">[WA]</span> → +91-98765-43210<br />
+                  <span style="color:var(--amber);">Template:</span> Vehicle MH12AB3456<br />
+                  Zone A, Slot S3 | Entry: 09:30<br /><br />
+                  <span style="color:var(--red);">[ALERT]</span> → Operator<br />
+                  OVERSTAY S10: MH14GH5566<br />
+                  Duration: 2h 10min<br /><br />
+                  <span style="color:var(--green);">[OK]</span> All 3 messages delivered ✓
+                </div>
+              </div>
+            </div>
+
+            <!-- RIGHT: Chat Panel -->
+            <div class="alerts-right" style="overflow:visible;">
+              <div class="chat-panel">
+                <div class="chat-header">
+                  <span>COMMAND CENTRE CHAT</span>
+                  <span class="chat-online">Control Room Online</span>
+                </div>
+                <div class="chat-feed" id="chat-feed">
+                  <!-- Populated by JS -->
+                </div>
+                <div class="chat-input-bar">
+                  <button class="chat-file-btn" onclick="document.getElementById('file-upload').click()"
+                    title="Attach File">📎</button>
+                  <input type="file" id="file-upload" class="file-input-hidden" onchange="handleFileUpload(this)"
+                    accept="image/*,.pdf,.csv,.mp4" />
+                  <input type="text" id="chat-input" placeholder="Type a message..."
+                    onkeydown="if(event.key==='Enter')sendChatMessage()" />
+                  <button class="chat-send-btn" onclick="sendChatMessage()">SEND ➤</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── SETTINGS ── -->
+        <div class="view" id="view-settings">
+          <div class="section-header" style="margin-bottom:14px;">
+            <div class="section-title">⚙ SYSTEM SETTINGS</div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-title">VOICE & AUDIO</div>
+            <div class="toggle-row"><span class="toggle-label">Voice Announcements</span>
+              <div class="toggle on" id="voice-toggle" onclick="toggleVoice()"></div>
+            </div>
+            <div class="toggle-row"><span class="toggle-label">Beep Sounds</span>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row"><span class="toggle-label">Emergency Alert Sound</span>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-title">DISPLAY</div>
+            <div class="toggle-row"><span class="toggle-label">Slot Animations</span>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row"><span class="toggle-label">Live Simulation</span>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row"><span class="toggle-label">MATLAB Console</span>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-title">SYSTEM INFO</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div
+                style="background:rgba(0,245,255,.04);border:1px solid var(--border);border-radius:8px;padding:12px;">
+                <div style="font-size:.65rem;color:var(--muted);">MATLAB VERSION</div>
+                <div style="font-family:'Orbitron',sans-serif;font-size:.78rem;color:var(--amber);margin-top:3px;">
+                  R2024a Update 2</div>
+              </div>
+              <div
+                style="background:rgba(0,245,255,.04);border:1px solid var(--border);border-radius:8px;padding:12px;">
+                <div style="font-size:.65rem;color:var(--muted);">CV TOOLBOX</div>
+                <div style="font-family:'Orbitron',sans-serif;font-size:.78rem;color:var(--green);margin-top:3px;">
+                  Active ✓</div>
+              </div>
+              <div
+                style="background:rgba(0,245,255,.04);border:1px solid var(--border);border-radius:8px;padding:12px;">
+                <div style="font-size:.65rem;color:var(--muted);">DETECTION FPS</div>
+                <div style="font-family:'Orbitron',sans-serif;font-size:.78rem;color:var(--cyan);margin-top:3px;">30 FPS
+                </div>
+              </div>
+              <div
+                style="background:rgba(0,245,255,.04);border:1px solid var(--border);border-radius:8px;padding:12px;">
+                <div style="font-size:.65rem;color:var(--muted);">UPTIME</div>
+                <div style="font-family:'Orbitron',sans-serif;font-size:.78rem;color:var(--cyan);margin-top:3px;"
+                  id="uptime-display">--:--:--</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn-primary" style="width:auto;padding:10px 22px;"
+              onclick="localStorage.clear();location.reload()">🔄 Reset All Data</button>
+            <button class="btn-primary"
+              style="width:auto;padding:10px 22px;background:linear-gradient(135deg,var(--violet),#3b82f6);"
+              onclick="openFaceScan()">📷 Re-register Face</button>
+          </div>
+        </div>
+
+      </main>
+
+      <!-- RIGHT PANEL -->
+      <aside id="right-panel">
+        <div class="rp-card">
+          <div class="rp-title">MY ACTIVE BOOKING</div>
+          <div class="booking-slot-num">S3</div>
+          <div class="booking-plate">MH12AB3456</div>
+          <div class="booking-row"><span class="label">Entry</span><span class="value" id="rp-entry">—</span></div>
+          <div class="booking-row"><span class="label">Duration</span><span class="value"
+              id="rp-duration">00:00:00</span></div>
+          <div class="booking-row"><span class="label">Row</span><span class="value">A — Near Entry</span></div>
+          <div class="fee-big" id="rp-fee">₹15</div>
+          <button class="btn-directions" onclick="showDirections()">🧭 DIRECTIONS</button>
+          <button class="btn-fail" style="width:100%;margin-top:10px;" onclick="cancelBooking()">✕ CANCEL BOOKING</button>
+        </div>
+        <div class="rp-card">
+          <div class="rp-title">NOTIFICATIONS</div>
+          <div id="notifications-list">
+            <div class="notif-item">
+              <div class="notif-dot" style="background:var(--green)"></div>
+              <div class="notif-text">Slot S4 now available — Row A</div>
+              <div>
+                <div class="notif-time">2m</div><button class="notif-dismiss"
+                  onclick="this.closest('.notif-item').remove()">✕</button>
+              </div>
+            </div>
+            <div class="notif-item">
+              <div class="notif-dot" style="background:var(--amber)"></div>
+              <div class="notif-text">80% capacity alert triggered</div>
+              <div>
+                <div class="notif-time">8m</div><button class="notif-dismiss"
+                  onclick="this.closest('.notif-item').remove()">✕</button>
+              </div>
+            </div>
+            <div class="notif-item">
+              <div class="notif-dot" style="background:var(--red)"></div>
+              <div class="notif-text">Overstay detected at S10 — Row C</div>
+              <div>
+                <div class="notif-time">15m</div><button class="notif-dismiss"
+                  onclick="this.closest('.notif-item').remove()">✕</button>
+              </div>
+            </div>
+            <div class="notif-item">
+              <div class="notif-dot" style="background:var(--red)"></div>
+              <div class="notif-text">Emergency priority mode activated</div>
+              <div>
+                <div class="notif-time">22m</div><button class="notif-dismiss"
+                  onclick="this.closest('.notif-item').remove()">✕</button>
+              </div>
+            </div>
+            <div class="notif-item">
+              <div class="notif-dot" style="background:var(--amber)"></div>
+              <div class="notif-text">Your reservation expires in 3 mins</div>
+              <div>
+                <div class="notif-time">31m</div><button class="notif-dismiss"
+                  onclick="this.closest('.notif-item').remove()">✕</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="rp-card">
+          <div class="rp-title">PARKING ANXIETY INDEX</div>
+          <div class="gauge-wrap">
+            <svg class="gauge-svg" viewBox="0 0 110 65">
+              <path d="M8,62 A48,48 0 0,1 102,62" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="9"
+                stroke-linecap="round" />
+              <path d="M8,62 A48,48 0 0,1 102,62" fill="none" stroke="url(#gGrad)" stroke-width="9"
+                stroke-linecap="round" stroke-dasharray="155" stroke-dashoffset="92" />
+              <defs>
+                <linearGradient id="gGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#00ff88" />
+                  <stop offset="55%" stop-color="#ffaa00" />
+                  <stop offset="100%" stop-color="#ff3366" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div class="gauge-label" style="color:var(--amber);">42</div>
+            <div class="gauge-sub">Low Stress | behaviorFlow.m</div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- SLOT MODAL -->
+  <div id="slot-modal">
+    <div class="slot-modal-card">
+      <div class="smc-header">
+        <div>
+          <div id="smc-id" style="font-family:'Orbitron',sans-serif;font-size:2.4rem;font-weight:900;"></div>
+          <div style="font-size:.68rem;color:var(--muted);letter-spacing:1px;">SLOT DETAILS</div>
+        </div>
+        <button class="smc-close" onclick="closeSlotModal()">✕ Close</button>
+      </div>
+      <div class="smc-info">
+        <div class="smc-row">
+          <div class="smc-row-label">Type</div>
+          <div class="smc-row-val" id="smc-type">—</div>
+        </div>
+        <div class="smc-row">
+          <div class="smc-row-label">Status</div>
+          <div class="smc-row-val" id="smc-status">—</div>
+        </div>
+        <div class="smc-row">
+          <div class="smc-row-label">Vehicle</div>
+          <div class="smc-row-val" id="smc-plate">—</div>
+        </div>
+        <div class="smc-row">
+          <div class="smc-row-label">Duration</div>
+          <div class="smc-row-val" id="smc-duration">—</div>
+        </div>
+        <div class="smc-row" style="grid-column:1/-1;">
+          <div class="smc-row-label">Location</div>
+          <div class="smc-row-val" id="smc-location" style="color:var(--cyan);">—</div>
+        </div>
+        <div class="smc-row">
+          <div class="smc-row-label">Vehicle Type</div>
+          <div class="smc-row-val" id="smc-vtype">—</div>
+        </div>
+        <div class="smc-row">
+          <div class="smc-row-label">Confidence</div>
+          <div class="smc-row-val" id="smc-confidence" style="color:var(--green);">—</div>
+        </div>
+      </div>
+      <div id="smc-reserve-section" style="display:none;">
+        <button class="btn-reserve" onclick="reserveSlot()">⚡ RESERVE THIS SLOT</button>
+        <div style="text-align:center;font-size:.72rem;color:var(--muted);">Timer: <span id="smc-countdown"
+            style="font-family:'Orbitron',sans-serif;color:var(--cyan);">10:00</span></div>
+        <div class="qr-wrap"><canvas id="qr-canvas"></canvas>
+          <div class="qr-label" id="qr-label">Scan at gate barrier</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:.62rem;color:rgba(255,170,0,.55);text-align:center;">MATLAB: Otsu Threshold
+        | edgeDensity.m | Confidence via regionprops()</div>
+    </div>
+  </div>
+
+  <div id="emergency-overlay"></div>
+  <div id="toast-container"></div>
+
+  <script>
+/* ═══════════════════════════════════════════════════════
+   SmartPark AI — app.js
+   ═══════════════════════════════════════════════════════ */
+
+const STATE = {
+  user: null,
+  voiceEnabled: true,
+  emergencyMode: false,
+  entryTime: null,
+  currentView: 'dashboard',
+  reservedSlot: null
+};
+
+const DEFAULT_USER = {
+  name: 'Arjun Sharma',
+  initials: 'AS',
+  email: 'arjun@smartpark.in',
+  vehicle: 'MH12AB3456',
+  type: 'SUV',
+  face: null,
+};
+
+// Slot data
+const SLOTS = [
+  { id: 'S1', status: 'occupied', type: 'REG', plate: 'MH04CD7890', vtype: 'Car', duration: 45 },
+  { id: 'S2', status: 'available', type: 'REG', plate: '', vtype: '', duration: 0 },
+  { id: 'S3', status: 'reserved', type: 'REG', plate: 'MH12AB3456', vtype: 'SUV', duration: 0 },
+  { id: 'S4', status: 'occupied', type: 'REG', plate: 'MH09EF1122', vtype: 'Bike', duration: 12 },
+  { id: 'S5', status: 'available', type: 'REG', plate: '', vtype: '', duration: 0 },
+  { id: 'S6', status: 'available', type: 'VIP', plate: '', vtype: '', duration: 0 },
+  { id: 'S7', status: 'occupied', type: 'EV', plate: 'KA05XY2233', vtype: 'EV', duration: 120 },
+  { id: 'S8', status: 'available', type: 'HC', plate: '', vtype: '', duration: 0 },
+  { id: 'S9', status: 'available', type: 'REG', plate: '', vtype: '', duration: 0 },
+  { id: 'S10', status: 'occupied', type: 'REG', plate: 'MH14GH5566', vtype: 'Car', duration: 130, overstay: true },
+  { id: 'S11', status: 'available', type: 'FAM', plate: '', vtype: '', duration: 0 },
+  { id: 'S12', status: 'available', type: 'REG', plate: '', vtype: '', duration: 0 },
+  { id: 'S13', status: 'maintenance', type: 'REG', plate: '', vtype: '', duration: 0 },
+  { id: 'S14', status: 'available', type: 'REG', plate: '', vtype: '', duration: 0 },
+  { id: 'S15', status: 'occupied', type: 'REG', plate: 'MH22IJ9900', vtype: 'SUV', duration: 30 },
+  { id: 'S16', status: 'available', type: 'REG', plate: '', vtype: '', duration: 0 },
+];
+
+const TYPE_SLOT_CLASS = { REG: 'available', VIP: 'vip', EV: 'ev', HC: 'handicap', FAM: 'family' };
+const STATUS_COLOR = { available: '#00ff88', occupied: '#ff3366', reserved: '#3b82f6', maintenance: '#6b7280', vip: '#a855f7', ev: '#f97316', handicap: '#fbbf24', family: '#06b6d4' };
+
+// ─── BOOT ────────────────────────────────────────────────
+const BOOT_STEPS = [
+  { pct: 0, label: 'Initializing MATLAB Core Engine...' },
+  { pct: 25, label: 'Loading CV Detection Algorithms...' },
+  { pct: 50, label: 'Connecting CCTV Network...' },
+  { pct: 75, label: 'Calibrating Slot Matrix...' },
+  { pct: 100, label: 'System Ready ✓' },
+];
+
+function runBoot() {
+  const bar = document.getElementById('boot-bar');
+  const label = document.getElementById('boot-label');
+  let step = 0;
+  const advance = () => {
+    if (step >= BOOT_STEPS.length) {
+      setTimeout(() => {
+        document.getElementById('boot-screen').classList.add('hidden');
+        showLogin();
+      }, 600);
+      return;
+    }
+    const s = BOOT_STEPS[step++];
+    bar.style.width = s.pct + '%';
+    label.textContent = s.label;
+    setTimeout(advance, 700);
+  };
+  advance();
+}
+
+// ─── PARTICLES ───────────────────────────────────────────
+function initParticles() {
+  const canvas = document.getElementById('particle-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let W = canvas.width = canvas.offsetWidth;
+  let H = canvas.height = canvas.offsetHeight;
+  window.addEventListener('resize', () => { W = canvas.width = canvas.offsetWidth; H = canvas.height = canvas.offsetHeight; });
+  const pts = Array.from({ length: 80 }, () => ({
+    x: Math.random() * W, y: Math.random() * H,
+    vx: (Math.random() - 0.5) * 0.6, vy: (Math.random() - 0.5) * 0.6,
+  }));
+  const D = 120;
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    pts.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0 || p.x > W) p.vx *= -1;
+      if (p.y < 0 || p.y > H) p.vy *= -1;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,245,255,0.6)'; ctx.fill();
+    });
+    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
+      const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y, d = Math.sqrt(dx * dx + dy * dy);
+      if (d < D) {
+        ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y);
+        ctx.strokeStyle = `rgba(0,245,255,${0.15 * (1 - d / D)})`; ctx.lineWidth = 0.5; ctx.stroke();
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+// ─── LOGIN / TABS ─────────────────────────────────────────
+function showLogin() {
+  const ls = document.getElementById('login-screen');
+  ls.classList.add('active');
+  initParticles();
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tab));
+}
+
+// ─── WIZARD ──────────────────────────────────────────────
+let wizardStep = 1;
+function goWizard(n) {
+  document.querySelectorAll('.wizard-step').forEach((s, i) => s.classList.toggle('active', i + 1 === n));
+  document.querySelectorAll('.step-dot').forEach((d, i) => {
+    d.classList.toggle('done', i + 1 < n);
+    d.classList.toggle('active', i + 1 === n);
+  });
+  wizardStep = n;
+}
+
+// ─── WEBCAM ───────────────────────────────────────────────
+let regStream = null;
+async function startRegCam() {
+  try {
+    regStream = await navigator.mediaDevices.getUserMedia({ video: true });
+    const vid = document.getElementById('reg-video');
+    if (vid) { vid.srcObject = regStream; vid.play(); }
+  } catch (e) { showToast('📷 Camera access denied — using placeholder', 'warning'); }
+}
+
+function quickLogin() {
+  loadUser();
+  loadDashboard();
+  voiceGreeting();
+}
+
+function captureRegFace() {
+  const vid = document.getElementById('reg-video');
+  const out = document.getElementById('reg-captured');
+  const canvas = document.getElementById('reg-canvas');
+  if (vid && vid.readyState >= 2) {
+    canvas.width = vid.videoWidth; canvas.height = vid.videoHeight;
+    canvas.getContext('2d').drawImage(vid, 0, 0);
+    const data = canvas.toDataURL('image/jpeg', 0.8);
+    localStorage.setItem('sp_face', data);
+    out.src = data; out.style.display = 'block';
+    document.getElementById('reg-face-status').textContent = 'Face Registered ✓';
+    document.getElementById('reg-face-status').style.color = 'var(--green)';
+    if (regStream) regStream.getTracks().forEach(t => t.stop());
+  } else {
+    // Placeholder if no cam
+    const data = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzBhMWEzMCIvPjx0ZXh0IHg9IjUwIiB5PSI1NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzAwZjVmZiIgZm9udC1zaXplPSI0MCIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiPvCfp4E8L3RleHQ+PC9zdmc+';
+    localStorage.setItem('sp_face', data);
+    out.src = data; out.style.display = 'block';
+    document.getElementById('reg-face-status').textContent = 'Face Registered ✓';
+    document.getElementById('reg-face-status').style.color = 'var(--green)';
+  }
+}
+
+function completeWizard() {
+  const name = document.getElementById('w-name').value || 'Arjun Sharma';
+  const email = document.getElementById('w-email').value || 'arjun@smartpark.in';
+  const vehicle = document.getElementById('w-plate').value.toUpperCase() || 'MH12AB3456';
+  const type = document.getElementById('w-vtype').value || 'SUV';
+  const face = localStorage.getItem('sp_face');
+  const user = { name, email, vehicle, type, face, initials: name.split(' ').map(w => w[0]).join('').toUpperCase() };
+  localStorage.setItem('sp_user', JSON.stringify(user));
+  STATE.user = user;
+  // update confirm step
+  document.getElementById('confirm-name').textContent = name;
+  document.getElementById('confirm-vehicle').textContent = `${type} — ${vehicle}`;
+  if (face) { const img = document.getElementById('confirm-face'); img.src = face; img.style.display = 'block'; }
+  goWizard(3);
+}
+
+// ─── FACE SCAN MODAL ──────────────────────────────────────
+let scanStream = null;
+let scanMode = 'login'; // 'login' | 'entry'
+
+function openFaceScan(mode) {
+  scanMode = mode || 'login';
+  const m = document.getElementById('face-scan-modal');
+  m.classList.add('active');
+  startScanCam();
+  document.getElementById('scan-status').textContent = 'Align your face with the frame...';
+}
+
+async function startScanCam() {
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: true });
+    const vid = document.getElementById('scan-video');
+    vid.srcObject = scanStream; vid.play();
+  } catch (e) { /* no cam, still show animation */ }
+}
+
+function closeScanModal() {
+  const m = document.getElementById('face-scan-modal');
+  m.classList.remove('active');
+  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+}
+
+let scanActive = false;
+function initiateScan() {
+  if (scanActive) return; // Prevent double-fire
+  const status = document.getElementById('scan-status');
+  const vid    = document.getElementById('scan-video');
+  // STEP 1: Check camera is running
+  if (!scanStream || !vid?.srcObject) {
+    status.textContent = '⚠ Camera access required. Allow camera permission first.';
+    status.style.color = 'var(--red)';
+    startScanCam().then(() => {
+      setTimeout(() => { status.textContent = '✓ Camera ready. Press INITIATE FACE SCAN again.'; status.style.color = 'var(--cyan)'; }, 1500);
+    });
+    return;
+  }
+  // STEP 2: Check face registration exists for login
+  const storedFace = localStorage.getItem('sp_face');
+  if (!storedFace) {
+    status.textContent = '⚠ No biometric data found. Please register first.';
+    status.style.color = 'var(--red)';
+    setTimeout(() => { simulateFail(); }, 400);
+    return;
+  }
+  scanActive = true;
+  
+  // Calculate MAD face difference
+  const vCanvas = document.createElement('canvas'); vCanvas.width=64; vCanvas.height=64;
+  vCanvas.getContext('2d').drawImage(vid,0,0,64,64);
+  const curPx = vCanvas.getContext('2d').getImageData(0,0,64,64).data;
+  
+  const img = new Image();
+  img.onload = () => {
+    const rCanvas=document.createElement('canvas'); rCanvas.width=64; rCanvas.height=64;
+    rCanvas.getContext('2d').drawImage(img,0,0,64,64);
+    const refPx = rCanvas.getContext('2d').getImageData(0,0,64,64).data;
+    let diff=0;
+    for(let i=0;i<curPx.length;i+=4){
+       diff += Math.abs(((curPx[i]+curPx[i+1]+curPx[i+2])/3) - ((refPx[i]+refPx[i+1]+refPx[i+2])/3));
+    }
+    const mad = diff/(64*64);
+    const isMatch = mad < 55; // Threshold
+    
+    const steps = [
+      [0,    '🔍 Detecting face position... hold still', 'var(--cyan)'],
+      [1000, '✓ Face detected | Checking lighting conditions', 'var(--cyan)'],
+      [2000, '⟵ LIVENESS CHECK: Turn head slightly LEFT', 'var(--amber)'],
+      [3200, '⟶ LIVENESS CHECK: Now turn slightly RIGHT', 'var(--amber)'],
+      [4200, '👁 LIVENESS CHECK: Please blink once naturally', 'var(--amber)'],
+      [5100, '✓ Liveness PASSED | Anti-spoofing verified', 'var(--green)'],
+      [5800, '🔐 Comparing to registered eigenface template...', 'var(--amber)'],
+      [6600, '📊 MATLAB: regionprops() biometric match...', 'var(--amber)'],
+    ];
+    
+    if (isMatch) {
+       steps.push([7400, '✅ IDENTITY CONFIRMED (Diff: '+mad.toFixed(1)+') — Access granted', 'var(--green)']);
+       steps.forEach(([delay, text, color]) => setTimeout(() => { status.textContent = text; status.style.color = color; }, delay));
+       setTimeout(() => {
+          const flash = document.getElementById('modal-flash');
+          flash.className = 'modal-flash green-flash';
+          playBeep('success');
+          setTimeout(() => {
+            flash.className = 'modal-flash';
+            closeScanModal(); scanActive = false;
+            loadUser(); loadDashboard(); voiceGreeting();
+          }, 500);
+       }, 7900);
+    } else {
+       steps.forEach(([delay, text, color]) => setTimeout(() => { status.textContent = text; status.style.color = color; }, delay));
+       setTimeout(() => {
+          scanActive = false;
+          simulateFail('SECURITY ALERT: Face geometry mismatch (Diff: '+mad.toFixed(1)+'). Access Denied.');
+       }, 7400);
+    }
+  };
+  img.src = storedFace;
+}
+
+function simulateFail(msg) {
+  const status = document.getElementById('scan-status');
+  const card = document.querySelector('.scan-modal-card');
+  const flash = document.getElementById('modal-flash');
+  status.textContent = msg || 'IDENTITY NOT RECOGNIZED — Please try again';
+  status.style.color = 'var(--red)';
+  flash.className = 'modal-flash red-flash';
+  card.classList.add('shake');
+  playBeep('fail');
+  setTimeout(() => { card.classList.remove('shake'); flash.className = 'modal-flash'; }, 600);
+}
+
+// ─── AUDIO ────────────────────────────────────────────────
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  return audioCtx;
+}
+function playBeep(type) {
+  if (!STATE.voiceEnabled) return;
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    if (type === 'success') {
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc.start(); osc.stop(ctx.currentTime + 0.5);
+    } else if (type === 'fail') {
+      osc.type = 'sawtooth';
+      osc.frequency.value = 200;
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start(); osc.stop(ctx.currentTime + 0.4);
+    } else {
+      osc.frequency.value = 660;
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start(); osc.stop(ctx.currentTime + 0.3);
+    }
+  } catch (e) { }
+}
+
+// ─── VOICE ────────────────────────────────────────────────
+function speak(text) {
+  if (!STATE.voiceEnabled) return;
+  try {
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 0.95; utter.pitch = 1.0;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utter);
+    showToast('🔊 ' + text.substring(0, 60) + (text.length > 60 ? '...' : ''), 'voice');
+  } catch (e) { }
+}
+
+function toggleVoice() {
+  STATE.voiceEnabled = !STATE.voiceEnabled;
+  const toggle = document.getElementById('voice-toggle');
+  if (toggle) toggle.classList.toggle('on', STATE.voiceEnabled);
+  
+  const navBtn = document.getElementById('nav-voice-btn');
+  if (navBtn) navBtn.textContent = STATE.voiceEnabled ? '🔊' : '🔇';
+  
+  if (!STATE.voiceEnabled) {
+    try { 
+      // Force kill sticky Web Speech API queues
+      window.speechSynthesis.pause(); 
+      window.speechSynthesis.resume();
+      window.speechSynthesis.cancel(); 
+    } catch(e) {}
+  }
+  
+  showToast(STATE.voiceEnabled ? '🔊 Voice announcements enabled' : '🔇 Voice announcements muted', STATE.voiceEnabled ? 'info' : 'warning');
+}
+
+function voiceGreeting() {
+  const u = STATE.user;
+  const h = new Date().getHours();
+  const period = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+  const name = u ? u.name.split(' ')[0] : 'User';
+  speak(`Welcome back, ${name}. Good ${period}. Slot S3 has been pre-assigned for you. Have a great parking experience.`);
+}
+
+// ─── TOAST ────────────────────────────────────────────────
+function showToast(text, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const div = document.createElement('div');
+  div.className = 'toast' + (type === 'voice' ? ' voice' : '');
+  const icon = type === 'voice' ? '🔊' : type === 'warning' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
+  div.innerHTML = `<span class="toast-icon">${icon}</span><span>${text}</span>`;
+  container.appendChild(div);
+  setTimeout(() => div.remove(), 5000);
+}
+
+// ─── USER LOAD ────────────────────────────────────────────
+function loadUser() {
+  const stored = localStorage.getItem('sp_user');
+  STATE.user = stored ? JSON.parse(stored) : { ...DEFAULT_USER };
+  STATE.entryTime = new Date();
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────
+function loadDashboard() {
+  document.getElementById('login-screen').classList.remove('active');
+  const shell = document.getElementById('app-shell');
+  shell.classList.add('active');
+  const u = STATE.user;
+  // Nav
+  document.getElementById('nav-name').textContent = u.name;
+  document.getElementById('nav-plate').textContent = u.vehicle;
+  document.querySelector('.nav-avatar').textContent = u.initials || 'AS';
+  if (u.face) {
+    const img = document.createElement('img');
+    img.src = u.face;
+    document.querySelector('.nav-avatar').innerHTML = '';
+    document.querySelector('.nav-avatar').appendChild(img);
+  }
+  startClock();
+  renderParkingMap();
+  renderSlotStrip();
+  startLiveSimulation();
+  startBookingTimer();
+  renderLeaderboard();
+  renderEco();
+  switchView('dashboard');
+  // Init CCTV canvases after DOM paint
+  setTimeout(initAllCCTV, 250);
+  // Init analytics charts with delay
+  setTimeout(renderAnalytics, 400);
+}
+
+// ─── CLOCK ────────────────────────────────────────────────
+function startClock() {
+  function tick() {
+    const now = new Date();
+    document.getElementById('nav-clock').textContent =
+      now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    document.getElementById('nav-date').textContent =
+      now.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  }
+  tick(); setInterval(tick, 1000);
+}
+
+// ─── PARKING MAP ─────────────────────────────────────────
+function getSlotClass(slot) {
+  if (slot.status === 'maintenance') return 'maintenance';
+  if (slot.status === 'occupied') return 'occupied';
+  if (slot.status === 'reserved') return 'reserved';
+  const t = slot.type;
+  if (t === 'VIP') return 'vip';
+  if (t === 'EV') return 'ev';
+  if (t === 'HC') return 'handicap';
+  if (t === 'FAM') return 'family';
+  return 'available';
+}
+
+function slotIcon(slot) {
+  if (slot.status === 'occupied') return '🚗';
+  if (slot.status === 'maintenance') return '🔧';
+  if (slot.type === 'EV') return '⚡';
+  if (slot.type === 'HC') return '♿';
+  if (slot.type === 'VIP') return '👑';
+  if (slot.type === 'FAM') return '👨‍👩‍👧';
+  return '';
+}
+
+function getSlotLocation(slotId) {
+  const n = parseInt(slotId.replace('S', ''));
+  if (n <= 4) return 'Row A — near the Entry Gate';
+  if (n <= 8) return 'Row B — centre zone, left aisle';
+  if (n <= 12) return 'Row C — centre zone, right aisle';
+  return 'Row D — near the Exit Gate';
+}
+
+function renderParkingMap() {
+  const grid = document.getElementById('parking-map');
+  if (!grid) return;
+  grid.innerHTML = '';
+  // Force horizontal 4-column grid with inline styles
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px;';
+  const avail = SLOTS.filter(s => s.status === 'available').length;
+  const occ = SLOTS.filter(s => s.status === 'occupied').length;
+  const res = SLOTS.filter(s => s.status === 'reserved').length;
+  countUp('stat-available', avail);
+  countUp('stat-occupied', occ);
+  countUp('stat-reserved', res);
+  SLOTS.forEach((slot, i) => {
+    const cls = getSlotClass(slot);
+    const isUser = slot.plate === (STATE.user?.vehicle || 'MH12AB3456');
+    const div = document.createElement('div');
+    div.className = `slot ${cls}${isUser ? ' user-slot' : ''}`;
+    div.style.animationDelay = (i * 40) + 'ms';
+    div.dataset.id = slot.id;
+    div.innerHTML = `<span class="slot-id">${slot.id}</span><span class="slot-car">${slotIcon(slot)}</span><span class="slot-type-badge">${slot.type}</span>${cls === 'available' ? '<div class="slot-ring"></div>' : ''}`;
+    div.addEventListener('click', () => openSlotModal(slot));
+    grid.appendChild(div);
+  });
+  // Add row labels as overlay hints
+  const wrapper = document.getElementById('parking-map-wrapper');
+  if (wrapper && !wrapper.querySelector('.row-hints')) {
+    const hints = document.createElement('div');
+    hints.className = 'row-hints';
+    hints.style.cssText = 'display:grid;grid-template-columns:1fr;gap:0;pointer-events:none;position:absolute;left:4px;top:50%;transform:translateY(-50%);';
+    wrapper.style.position = 'relative';
+    wrapper.appendChild(hints);
+  }
+}
+
+function renderSlotStrip() {
+  const strip = document.getElementById('slot-strip');
+  if (!strip) return;
+  strip.innerHTML = '';
+  SLOTS.forEach(slot => {
+    const cls = getSlotClass(slot);
+    const color = STATUS_COLOR[cls] || '#6b7280';
+    const div = document.createElement('div');
+    div.className = 'slot-mini';
+    div.innerHTML = `
+      <div class="slot-mini-id" style="color:${color}">${slot.id}</div>
+      <div class="slot-mini-type">${slot.type}</div>
+      <div class="slot-mini-status">
+        <span class="slot-mini-dot" style="background:${color}"></span>
+        ${cls.charAt(0).toUpperCase() + cls.slice(1)}
+        ${slot.duration ? `· ${slot.duration}m` : ''}
+      </div>
+    `;
+    div.addEventListener('click', () => openSlotModal(slot));
+    strip.appendChild(div);
+  });
+}
+
+function countUp(id, target) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  let n = 0;
+  const step = Math.ceil(target / 20);
+  const t = setInterval(() => {
+    n = Math.min(n + step, target);
+    el.textContent = n;
+    if (n >= target) clearInterval(t);
+  }, 50);
+}
+
+// ─── LIVE SIMULATION ──────────────────────────────────────
+function startLiveSimulation() {
+  setInterval(() => {
+    const candidates = SLOTS.filter(s => s.status !== 'maintenance' && s.id !== 'S3');
+    const idx = Math.floor(Math.random() * candidates.length);
+    const slot = candidates[idx];
+    const wasAvail = slot.status === 'available';
+    slot.status = wasAvail ? 'occupied' : 'available';
+    if (!wasAvail) { slot.plate = ''; slot.duration = 0; }
+    else { slot.duration = Math.floor(Math.random() * 60) + 1; }
+    updateSlotEl(slot);
+    renderSlotStrip();
+    updateStats();
+    playBeep('notification');
+    if (!wasAvail) {
+      const loc = getSlotLocation(slot.id);
+      showToast(`🟢 Slot ${slot.id} available — ${loc}`, 'success');
+      speak(`Slot ${slot.id} is now available. Location: ${loc}.`);
+    }
+    checkCapacity();
+  }, 5000);
+}
+
+function updateSlotEl(slot) {
+  const el = document.querySelector(`.slot[data-id="${slot.id}"]`);
+  if (!el) return;
+  el.className = `slot ${getSlotClass(slot)}`;
+  el.classList.add('flash');
+  el.dataset.id = slot.id;
+  el.innerHTML = `
+    <span class="slot-id">${slot.id}</span>
+    <span class="slot-car">${slotIcon(slot)}</span>
+    <span class="slot-type-badge">${slot.type}</span>
+    ${getSlotClass(slot) === 'available' ? '<div class="slot-ring"></div>' : ''}
+  `;
+  el.addEventListener('click', () => openSlotModal(slot));
+  setTimeout(() => el.classList.remove('flash'), 500);
+}
+
+function updateStats() {
+  const avail = SLOTS.filter(s => s.status === 'available').length;
+  const occ = SLOTS.filter(s => s.status === 'occupied').length;
+  const res = SLOTS.filter(s => s.status === 'reserved').length;
+  document.getElementById('stat-available').textContent = avail;
+  document.getElementById('stat-occupied').textContent = occ;
+  document.getElementById('stat-reserved').textContent = res;
+}
+
+function checkCapacity() {
+  const occ = SLOTS.filter(s => s.status === 'occupied').length;
+  const pct = (occ / SLOTS.length) * 100;
+  if (pct >= 80) speak('Warning. Parking lot is at 80% capacity. Please expect delays.');
+}
+
+// ─── BOOKING TIMER ────────────────────────────────────────
+function startBookingTimer() {
+  STATE.entryTime = STATE.entryTime || new Date();
+  function updateTimer() {
+    const now = new Date();
+    const diff = Math.floor((now - STATE.entryTime) / 1000);
+    const h = Math.floor(diff / 3600);
+    const m = Math.floor((diff % 3600) / 60);
+    const s = diff % 60;
+    const str = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    const dur = document.getElementById('booking-duration');
+    if (dur) dur.textContent = str;
+    const feeEl = document.getElementById('booking-fee');
+    if (feeEl) feeEl.textContent = `₹${Math.floor(diff / 60) * 1 + 15}`;
+  }
+  updateTimer(); setInterval(updateTimer, 1000);
+}
+
+// ─── SLOT MODAL ──────────────────────────────────────────
+let reserveTimer = null;
+function openSlotModal(slot) {
+  const m = document.getElementById('slot-modal');
+  const cls = getSlotClass(slot);
+  const color = STATUS_COLOR[cls] || '#6b7280';
+  document.getElementById('smc-id').textContent = slot.id;
+  document.getElementById('smc-id').style.color = color;
+  document.getElementById('smc-type').textContent = slot.type;
+  document.getElementById('smc-status').textContent = cls.charAt(0).toUpperCase() + cls.slice(1);
+  document.getElementById('smc-status').style.color = color;
+  document.getElementById('smc-plate').textContent = slot.plate || '—';
+  document.getElementById('smc-vtype').textContent = slot.vtype || '—';
+  document.getElementById('smc-duration').textContent = slot.duration ? slot.duration + ' min' : '—';
+  const conf = (97 + Math.random() * 2).toFixed(1);
+  document.getElementById('smc-confidence').textContent = conf + '%';
+  const locEl = document.getElementById('smc-location');
+  if (locEl) locEl.textContent = getSlotLocation(slot.id);
+  const reserveSection = document.getElementById('smc-reserve-section');
+  if (cls === 'available') {
+    reserveSection.style.display = 'block';
+    document.getElementById('smc-countdown').textContent = '10:00';
+    document.getElementById('qr-canvas').innerHTML = '';
+    generateQR(slot);
+  } else {
+    reserveSection.style.display = 'none';
+  }
+  m.classList.add('active');
+}
+
+function closeSlotModal() {
+  document.getElementById('slot-modal').classList.remove('active');
+  if (reserveTimer) { clearInterval(reserveTimer); reserveTimer = null; }
+}
+
+function reserveSlot() {
+  const slotId = document.getElementById('smc-id').textContent;
+  // Update SLOTS array so map, analytics, my booking all reflect the new reservation
+  const slot = SLOTS.find(s => s.id === slotId);
+  if (slot) {
+    slot.status = 'reserved';
+    slot.plate = STATE.user?.vehicle || 'MH12AB3456';
+    slot.vtype = STATE.user?.type || 'SUV';
+  }
+  STATE.reservedSlot = slotId;
+  // Refresh map + stats
+  renderParkingMap();
+  renderSlotStrip();
+  updateStats();
+  // Inject row into analytics table
+  const tbody = document.querySelector('#analytics-log-table tbody');
+  if (tbody) {
+    const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    const tr = document.createElement('tr');
+    tr.style.animation = 'fadeInUp .4s ease';
+    tr.innerHTML = `<td style="color:var(--cyan)">${slotId}</td><td style="color:var(--cyan)">${STATE.user?.vehicle || 'MH12AB3456'}</td><td>${STATE.user?.type || 'SUV'}</td><td>${now}</td><td>—</td><td style="color:var(--green)">Active ●</td><td style="color:var(--amber)">Live</td>`;
+    tbody.insertBefore(tr, tbody.firstChild);
+  }
+  // Update My Booking section
+  const bkSlot = document.getElementById('bk-slot-num');
+  if (bkSlot) bkSlot.textContent = slotId;
+  const bkPlate = document.getElementById('bk-plate');
+  if (bkPlate) bkPlate.textContent = STATE.user?.vehicle || 'MH12AB3456';
+  const rpSlot = document.querySelector('.booking-slot-num');
+  if (rpSlot) rpSlot.textContent = slotId;
+  // Timer
+  let secs = 600;
+  const el = document.getElementById('smc-countdown');
+  reserveTimer = setInterval(() => {
+    secs--;
+    const mn = Math.floor(secs / 60), sc = secs % 60;
+    if (el) el.textContent = `${String(mn).padStart(2, '0')}:${String(sc).padStart(2, '0')}`;
+    if (secs === 180) speak(`Slot ${slotId} reservation expires in 3 minutes.`);
+    if (secs <= 0) { clearInterval(reserveTimer); if (el) { el.textContent = 'EXPIRED'; el.style.color = 'var(--red)'; } }
+  }, 1000);
+  showToast(`✅ Slot ${slotId} reserved! 10-min timer started.`, 'success');
+  playBeep('success');
+  closeSlotModal();
+  document.querySelectorAll('.btn-fail, .btn-directions').forEach(b => b.style.display = 'inline-block');
+  setTimeout(() => switchView('booking'), 400);
+}
+
+function cancelBooking() {
+  if (!STATE.reservedSlot) return;
+  const slot = SLOTS.find(s => s.id === STATE.reservedSlot);
+  if (slot) {
+    slot.status = 'available';
+    slot.plate = '';
+    slot.vtype = '';
+  }
+  STATE.reservedSlot = null;
+  if (reserveTimer) clearInterval(reserveTimer);
+  showToast('Booking cancelled successfully.', 'info');
+  renderParkingMap();
+  renderSlotStrip();
+  updateStats();
+  switchView('dashboard');
+  
+  // Clear HTML references
+  const bkSlot = document.getElementById('bk-slot-num');
+  if (bkSlot) bkSlot.textContent = '—';
+  const bkPlate = document.getElementById('bk-plate');
+  if (bkPlate) bkPlate.textContent = '—';
+  const rpSlot = document.querySelector('.booking-slot-num');
+  if (rpSlot) rpSlot.textContent = '—';
+  
+  document.querySelectorAll('.btn-fail, .btn-directions').forEach(b => b.style.display = 'none');
+}
+
+function showDirections() {
+  const slotId = STATE.reservedSlot;
+  if (!slotId) return showToast('No active booking to navigate to.', 'warning');
+  switchView('dashboard');
+  const grid = document.getElementById('parking-map');
+  const slotEl = document.querySelector(`.slot[data-id="${slotId}"]`);
+  if (!slotEl || !grid) return;
+
+  let svg = document.getElementById('dir-svg');
+  if (svg) svg.remove();
+  let oldCar = document.getElementById('dir-car');
+  if (oldCar) oldCar.remove();
+  
+  svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.id = 'dir-svg';
+  svg.style.position = 'absolute'; svg.style.inset = '0';
+  svg.style.width = '100%'; svg.style.height = '100%';
+  svg.style.pointerEvents = 'none'; svg.style.zIndex = '10';
+  
+  const gridRect = grid.getBoundingClientRect();
+  const slotRect = slotEl.getBoundingClientRect();
+  const startX = gridRect.width / 2;
+  const startY = -20;
+  const targetX = slotRect.left - gridRect.left + slotRect.width/2;
+  const targetY = slotRect.top - gridRect.top + slotRect.height/2;
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  const d = `M ${startX} ${startY} L ${startX} ${targetY} L ${targetX} ${targetY}`;
+  path.setAttribute('d', d); path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', '#00f5ff'); path.setAttribute('stroke-width', '4');
+  path.setAttribute('stroke-dasharray', '10,10'); path.setAttribute('class', 'dir-path-anim');
+  svg.appendChild(path);
+  
+  const car = document.createElement('div');
+  car.id = 'dir-car';
+  car.innerHTML = '🚗';
+  car.style.position = 'absolute'; car.style.fontSize = '24px';
+  car.style.transition = 'all 2s ease-in-out';
+  car.style.left = startX + 'px'; car.style.top = startY + 'px';
+  car.style.transform = 'translate(-50%, -50%)'; car.style.zIndex = '11';
+  
+  grid.style.position = 'relative';
+  grid.appendChild(svg); grid.appendChild(car);
+  
+  setTimeout(() => { car.style.top = targetY + 'px'; }, 100);
+  setTimeout(() => { car.style.left = targetX + 'px'; }, 2100);
+  setTimeout(() => { svg.remove(); car.remove(); }, 6000);
+  showToast(`🧭 Navigating to ${slotId}...`, 'info');
+}
+
+function generateQR(slot) {
+  const canvas = document.getElementById('qr-canvas');
+  if (!canvas) return;
+  const size = 120;
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, size, size);
+  // simple visual QR placeholder (real QR would need qrcode.js)
+  ctx.fillStyle = '#000';
+  const data = slot.id + '|' + (STATE.user?.vehicle || 'MH12AB3456') + '|' + Date.now();
+  // Draw QR-like pattern based on data hash
+  const hash = data.split('').reduce((a, c) => ((a << 5) - a) + c.charCodeAt(0) | 0, 0);
+  const cells = 11;
+  const cell = size / cells;
+  for (let r = 0; r < cells; r++) {
+    for (let c_ = 0; c_ < cells; c_++) {
+      if ((hash * (r + 1) * (c_ + 1)) % 3 === 0) {
+        ctx.fillRect(c_ * cell, r * cell, cell, cell);
+      }
+    }
+  }
+  // finder patterns
+  [[0, 0], [0, cells - 3], [cells - 3, 0]].forEach(([r, c_]) => {
+    ctx.strokeStyle = '#000'; ctx.lineWidth = cell;
+    ctx.strokeRect(c_ * cell + cell / 2, r * cell + cell / 2, 2 * cell, 2 * cell);
+  });
+  const label = document.getElementById('qr-label');
+  if (label) label.textContent = `${slot.id} | ${STATE.user?.vehicle || ''} | ${new Date().toLocaleTimeString()}`;
+}
+
+// ─── CCTV CANVAS ──────────────────────────────────────────
+function initAllCCTV() {
+  ['cctv-canvas-1', 'cctv-canvas-2', 'cctv-canvas-3', 'cctv-canvas-4'].forEach((id, seed) => initCCTVCanvas(id, seed));
+}
+
+function initCCTVCanvas(id, seed) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = 960; canvas.height = 540;
+  const W = 960, H = 540;
+  // Per-camera config
+  const CONFIGS = [
+    { name:'CAM_01', ip:'192.168.1.101', zone:'ENTRY GATE A', view:'gate',  fps:30 },
+    { name:'CAM_02', ip:'192.168.1.101', zone:'ZONE A — ROW 1-2', view:'top',   fps:30 },
+    { name:'CAM_03', ip:'192.168.1.102', zone:'ZONE A — ROW 1-2', view:'top',   fps:25 },
+    { name:'CAM_04', ip:'192.168.1.104', zone:'EXIT GATE B',  view:'gate',  fps:30 },
+  ];
+  const cfg = CONFIGS[seed % 4];
+  const CAR_COLORS = ['#b0392e','#2471a3','#1e8449','#7d6608','#784212','#2e4057','#512e5f','#1a5276'];
+  // AI detection boxes for parked slots
+  const detBoxes = SLOTS.map((slot, i) => ({
+    slot, i,
+    conf: (93 + Math.random()*6).toFixed(1),
+    scanPhase: Math.random()*Math.PI*2,
+  }));
+  // Gate camera: cars driving through
+  const gateCars = [
+    { y: H*0.55, x: W*0.5, speed:0.6, scale:0.6, color:CAR_COLORS[seed%8], state:'approach', stateTimer:0 },
+  ];
+  const slotW=195, slotH=90, cols=4, rows=4;
+  const parkX=(W-(cols*slotW+(cols-1)*14))/2, parkY=72;
+  let frame=0, noiseOff=0;
+
+  // --- NOISE LAYER (pre-computed for speed) ---
+  const noiseCanvas=document.createElement('canvas'); noiseCanvas.width=W; noiseCanvas.height=H;
+  const nCtx=noiseCanvas.getContext('2d');
+  function rebuildNoise(){
+    const id=nCtx.createImageData(W,H); const d=id.data;
+    for(let i=0;i<d.length;i+=4){const v=Math.random()*30|0; d[i]=v;d[i+1]=v;d[i+2]=v;d[i+3]=18;}
+    nCtx.putImageData(id,0,0);
+  }
+  rebuildNoise();
+
+  function drawGateCamera(){
+    // Road surface
+    const road=ctx.createLinearGradient(0,H*0.4,0,H);
+    road.addColorStop(0,'#2a2a2a'); road.addColorStop(1,'#1a1a1a');
+    ctx.fillStyle=road; ctx.fillRect(0,H*0.4,W,H*0.6);
+    // Sky/building background
+    const sky=ctx.createLinearGradient(0,0,0,H*0.4);
+    sky.addColorStop(0,'#0d111a'); sky.addColorStop(1,'#1a2035');
+    ctx.fillStyle=sky; ctx.fillRect(0,0,W,H*0.4);
+    // Horizon building outline
+    ctx.fillStyle='#111827';
+    ctx.fillRect(0,H*0.3,W*0.2,H*0.1);
+    ctx.fillRect(W*0.75,H*0.25,W*0.25,H*0.15);
+    ctx.fillRect(W*0.4,H*0.28,W*0.15,H*0.12);
+    // Road center lines (perspective)
+    ctx.strokeStyle='rgba(255,220,0,.5)'; ctx.lineWidth=2; ctx.setLineDash([24,18]);
+    ctx.beginPath(); ctx.moveTo(W*0.5,H*0.4); ctx.lineTo(W*0.3,H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W*0.5,H*0.4); ctx.lineTo(W*0.7,H); ctx.stroke();
+    ctx.setLineDash([]);
+    // Road edge lines
+    ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(W*0.1,H*0.4); ctx.lineTo(0,H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W*0.9,H*0.4); ctx.lineTo(W,H); ctx.stroke();
+    // Gate barrier (red/white striped)
+    const gx=W*0.5, gy=H*0.52;
+    const barLen=W*0.32;
+    // Barrier pole
+    ctx.fillStyle='#c0c0c0'; ctx.fillRect(gx-barLen-8,gy-40,10,60);
+    // Barrier arm (horizontal, striped)
+    const stripes=8;
+    for(let s=0;s<stripes;s++){
+      ctx.fillStyle=s%2===0?'#dc2626':'#ffffff';
+      ctx.fillRect(gx-barLen+s*(barLen/stripes),gy-8,barLen/stripes,16);
+    }
+    // Gate LED
+    const gateOpen=Math.sin(frame*0.02)>0;
+    ctx.fillStyle=gateOpen?'rgba(0,255,136,.9)':'rgba(255,51,102,.9)';
+    ctx.beginPath(); ctx.arc(gx-barLen-3,gy-50,6,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font='bold 10px Arial'; ctx.textAlign='left';
+    ctx.fillText(gateOpen?'ENTRY OPEN':'BARRIER CLOSED',gx-barLen+5,gy-50);
+    // Approaching car
+    const car=gateCars[0];
+    car.stateTimer++;
+    if(car.state==='approach'){car.y-=1.2;car.scale+=0.005;if(car.stateTimer>80){car.state='stop';car.stateTimer=0;}}
+    else if(car.state==='stop'){if(car.stateTimer>60){car.state='leave';car.stateTimer=0;}}
+    else if(car.state==='leave'){car.y+=2;car.scale-=0.008;if(car.y>H+50||car.scale<0.1){car.y=H+50;car.scale=0.12;car.color=CAR_COLORS[Math.floor(Math.random()*CAR_COLORS.length)];car.state='reset';}}
+    else{car.y=H*0.7;car.scale=0.5;car.state='approach';car.stateTimer=0;}
+    // Draw 3D car shape
+    const sc=car.scale, cx=car.x, cy=car.y;
+    const cw=120*sc, ch=55*sc;
+    ctx.save();
+    ctx.shadowColor='rgba(0,0,0,.6)'; ctx.shadowBlur=20;
+    ctx.fillStyle=car.color;
+    ctx.beginPath(); ctx.roundRect(cx-cw/2,cy-ch,cw,ch,8*sc); ctx.fill();
+    // Windshield
+    ctx.fillStyle='rgba(150,220,250,.35)';
+    ctx.fillRect(cx-cw*0.35,cy-ch+4*sc,cw*0.7,ch*0.45);
+    // Wheels
+    ctx.fillStyle='#111';
+    [cx-cw*0.36,cx+cw*0.36-10*sc].forEach(wx=>{
+      ctx.beginPath(); ctx.ellipse(wx,cy,8*sc,5*sc,0,0,Math.PI*2); ctx.fill();
+    });
+    // Headlights
+    ctx.fillStyle='rgba(255,255,200,.9)';
+    ctx.fillRect(cx-cw/2,cy-ch+2*sc,14*sc,8*sc);
+    ctx.fillRect(cx+cw/2-14*sc,cy-ch+2*sc,14*sc,8*sc);
+    // Number plate
+    ctx.fillStyle='#fff'; ctx.fillRect(cx-20*sc,cy-4*sc,40*sc,10*sc);
+    ctx.fillStyle='#000'; ctx.font=`bold ${8*sc}px Arial`; ctx.textAlign='center';
+    ctx.fillText(STATE.user?.vehicle||'MH12AB3456',cx,cy+4*sc);
+    ctx.restore();
+    // AI detection box around car
+    ctx.strokeStyle='rgba(0,255,136,.8)'; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
+    ctx.strokeRect(cx-cw/2-4,cy-ch-4,cw+8,ch+8);
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(0,0,0,.7)'; ctx.fillRect(cx-cw/2-4,cy-ch-20,80,16);
+    ctx.fillStyle='#00ff88'; ctx.font='9px Orbitron,monospace'; ctx.textAlign='left';
+    ctx.fillText(`VEHICLE 97.2%`,cx-cw/2,cy-ch-7);
+    // Speed
+    ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(10,H-50,180,38);
+    ctx.fillStyle='rgba(0,245,255,.9)'; ctx.font='11px Orbitron,monospace'; ctx.textAlign='left';
+    ctx.fillText(`VEHICLE SPEED: ${car.state==='stop'?'0.0':car.state==='approach'?'12.4':'8.1'} km/h`,18,H-30);
+    ctx.fillText(`STATUS: ${car.state==='stop'?'AT BARRIER':car.state==='approach'?'APPROACHING':'EXITING'}`,18,H-16);
+  }
+
+  function drawTopView(){
+    // Asphalt
+    ctx.fillStyle='#252830'; ctx.fillRect(0,0,W,H);
+    // Concrete texture lines
+    for(let x=0;x<W;x+=40){ctx.strokeStyle='rgba(255,255,255,.02)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=0;y<H;y+=40){ctx.strokeStyle='rgba(255,255,255,.02)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    // Driving lane (center)
+    ctx.fillStyle='#1e2129'; ctx.fillRect(W*0.48,0,W*0.04,H);
+    ctx.strokeStyle='rgba(255,220,0,.3)'; ctx.lineWidth=2; ctx.setLineDash([20,15]);
+    ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();ctx.setLineDash([]);
+    // Entry/exit bands
+    ctx.fillStyle='rgba(0,255,136,.07)'; ctx.fillRect(0,0,W,parkY);
+    ctx.fillStyle='rgba(255,51,102,.07)'; ctx.fillRect(0,H-60,W,60);
+    ctx.fillStyle='#00ff88'; ctx.font='bold 11px Arial'; ctx.textAlign='center';
+    ctx.fillText('▼ ENTRY GATE A',W/2,parkY-8);
+    ctx.fillStyle='#ff3366'; ctx.fillText('▲ EXIT GATE B',W/2,H-8);
+    // Parking slots with AI detection
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+      const si=r*cols+c; const slot=SLOTS[si]; if(!slot) continue;
+      const cls=getSlotClass(slot);
+      const sx=parkX+c*(slotW+14), sy=parkY+r*(slotH+12);
+      const bg={available:'rgba(0,255,136,.08)',occupied:'rgba(255,51,102,.14)',reserved:'rgba(59,130,246,.18)',vip:'rgba(168,85,247,.14)',ev:'rgba(249,115,22,.14)',handicap:'rgba(251,191,36,.1)',family:'rgba(6,182,212,.1)',maintenance:'rgba(107,114,128,.08)'}[cls]||'rgba(255,255,255,.03)';
+      const brd={available:'rgba(255,255,255,.3)',occupied:'rgba(255,51,102,.7)',reserved:'rgba(59,130,246,.8)',vip:'rgba(168,85,247,.7)',ev:'rgba(249,115,22,.7)',handicap:'rgba(251,191,36,.7)',family:'rgba(6,182,212,.7)',maintenance:'rgba(107,114,128,.4)'}[cls]||'rgba(255,255,255,.15)';
+      // Slot background (concrete)
+      ctx.fillStyle=bg; ctx.fillRect(sx,sy,slotW,slotH);
+      // White painted boundary lines
+      ctx.strokeStyle=brd; ctx.lineWidth=2; ctx.strokeRect(sx,sy,slotW,slotH);
+      // Inner dividers (realistic parking lot detail)
+      ctx.strokeStyle='rgba(255,255,255,.18)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(sx,sy+slotH*0.5); ctx.lineTo(sx+slotW,sy+slotH*0.5); ctx.stroke();
+      // Parked car (top-down)
+      if(slot.status==='occupied'||slot.status==='reserved'){
+        const isUser=slot.plate===STATE.user?.vehicle;
+        const cc=isUser?'#00e5ff':CAR_COLORS[si%CAR_COLORS.length];
+        const cw=slotW*0.55, ch=slotH*0.75, cx2=sx+slotW/2, cy2=sy+slotH/2;
+        // Car shadow
+        ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(cx2+4,cy2+4,cw/2,ch/2+5,0,0,Math.PI*2); ctx.fill();
+        // Car body
+        ctx.fillStyle=cc; ctx.beginPath(); ctx.roundRect(cx2-cw/2,cy2-ch/2,cw,ch,4); ctx.fill();
+        // Windshields
+        ctx.fillStyle='rgba(180,230,255,.35)';
+        ctx.fillRect(cx2-cw*0.4,cy2-ch/2+4,cw*0.8,ch*0.25);
+        ctx.fillRect(cx2-cw*0.4,cy2+ch*0.22,cw*0.8,ch*0.2);
+        // Wheels (top-down)
+        ctx.fillStyle='#1a1a1a';
+        [[cx2-cw*0.48,cy2-ch*0.38],[cx2+cw*0.38,cy2-ch*0.38],[cx2-cw*0.48,cy2+ch*0.28],[cx2+cw*0.38,cy2+ch*0.28]].forEach(([wx,wy])=>{
+          ctx.beginPath(); ctx.roundRect(wx,wy,cw*0.1,ch*0.15,2); ctx.fill();
+        });
+        // User car highlight
+        if(isUser){ctx.strokeStyle='#00f5ff';ctx.lineWidth=2.5;ctx.strokeRect(cx2-cw/2-3,cy2-ch/2-3,cw+6,ch+6);}
+        // AI Detection box
+        const db=detBoxes[si];
+        const scanAmt=Math.sin(frame*0.03+db.scanPhase);
+        const alpha=0.5+scanAmt*0.3;
+        ctx.strokeStyle=isUser?`rgba(0,245,255,${alpha})`:`rgba(0,255,136,${alpha})`;
+        ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
+        ctx.strokeRect(sx+4,sy+4,slotW-8,slotH-8);
+        ctx.setLineDash([]);
+        // Plate + confidence label
+        if(slot.plate){
+          ctx.fillStyle='rgba(0,0,0,.75)'; ctx.fillRect(sx,sy,slotW,14);
+          ctx.fillStyle=isUser?'#00f5ff':'#00ff88'; ctx.font='7px Orbitron,monospace'; ctx.textAlign='left';
+          ctx.fillText(`${slot.plate} ${db.conf}%`,sx+3,sy+10);
+        }
+      }
+      // Slot ID
+      ctx.fillStyle='rgba(255,255,255,.25)'; ctx.font='bold 9px Orbitron,monospace'; ctx.textAlign='center';
+      ctx.fillText(slot.id,sx+slotW/2,sy+slotH-4);
+      // Row label
+      if(c===0){ ctx.fillStyle='rgba(0,245,255,.5)'; ctx.font='9px Arial'; ctx.textAlign='right'; ctx.fillText(['A','B','C','D'][r],sx-4,sy+slotH/2+4); }
+    }
+    // AI SCAN SWEEP LINE
+    const sweepY=parkY+(((frame*1.5)%(H-parkY*2-120)));
+    const sweepGrad=ctx.createLinearGradient(0,sweepY-20,0,sweepY+20);
+    sweepGrad.addColorStop(0,'rgba(0,245,255,0)'); sweepGrad.addColorStop(0.5,'rgba(0,245,255,.3)'); sweepGrad.addColorStop(1,'rgba(0,245,255,0)');
+    ctx.fillStyle=sweepGrad; ctx.fillRect(0,sweepY-20,W,40);
+  }
+
+  function draw(){
+    frame++;
+    // === DRAW SCENE ===
+    if(cfg.view==='gate') drawGateCamera();
+    else drawTopView();
+    // === CCTV POST-PROCESSING ===
+    // 1. Film grain (update every 3 frames for performance)
+    if(frame%3===0) rebuildNoise();
+    ctx.drawImage(noiseCanvas,0,0);
+    // 2. Scanlines
+    for(let y=0;y<H;y+=3){ctx.fillStyle='rgba(0,0,0,.09)';ctx.fillRect(0,y,W,1);}
+    // 3. Vignette
+    const vg=ctx.createRadialGradient(W/2,H/2,H*0.28,W/2,H/2,H*0.75);
+    vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.65)');
+    ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+    // 4. CCTV color grade (slight blue-green tint for night vision look)
+    ctx.fillStyle='rgba(0,10,5,.06)'; ctx.fillRect(0,0,W,H);
+    // === HUD OVERLAY ===
+    const now=new Date();
+    const ts=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${now.toLocaleTimeString('en-IN')}`;
+    // Top-left info bar
+    ctx.fillStyle='rgba(0,0,0,.78)'; ctx.fillRect(0,0,W,30);
+    ctx.fillStyle='#00ff88'; ctx.font='bold 12px Orbitron,monospace'; ctx.textAlign='left';
+    ctx.fillText(`${cfg.name} | ${cfg.zone}`,8,20);
+    ctx.fillStyle='rgba(224,244,255,.6)'; ctx.font='11px monospace'; ctx.textAlign='right';
+    ctx.fillText(`${ts} | ${cfg.fps}FPS | H.264`,W-8,20);
+    // Bottom info bar
+    ctx.fillStyle='rgba(0,0,0,.78)'; ctx.fillRect(0,H-28,W,28);
+    const occ=SLOTS.filter(s=>s.status==='occupied').length;
+    const avl=SLOTS.filter(s=>s.status==='available').length;
+    ctx.fillStyle='rgba(0,245,255,.8)'; ctx.font='10px Orbitron,monospace'; ctx.textAlign='left';
+    ctx.fillText(`IP: ${cfg.ip} | OCC: ${occ}/16 | FREE: ${avl} | MATLAB CV v3.1`,8,H-10);
+    // REC blink
+    const blink=Math.sin(frame*0.06)>0;
+    ctx.fillStyle=blink?'rgba(255,51,102,.95)':'rgba(120,0,0,.4)';
+    ctx.beginPath(); ctx.arc(W-22,H-14,7,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.8)'; ctx.font='bold 10px Arial'; ctx.textAlign='right';
+    ctx.fillText('● REC',W-34,H-9);
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+function initCCTVCanvas(id, seed) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  // Fixed internal resolution
+  canvas.width = 960; canvas.height = 540;
+  const W = 960, H = 540;
+  const CAR_COLORS = ['#4169e1', '#dc143c', '#228b22', '#ff8c00', '#9932cc', '#20b2aa', '#e67e22', '#3498db'];
+  const slotW = 140, slotH = 88, cols = 4, rows = 4;
+  const parkY = 75;
+  const xOffsets = [110, 260, 560, 710];
+  const aislePaths = [70, W/2, W/2, 890]; // where cars drive vertically
+  let activeParker = null;
+  
+  function spawnParker() {
+     const emptySlots = SLOTS.filter(s => s.status === 'available');
+     if (emptySlots.length === 0) return null;
+     const target = emptySlots[Math.floor(Math.random()*emptySlots.length)];
+     const si = SLOTS.indexOf(target);
+     const r = Math.floor(si/cols), c = si%cols;
+     return {
+       x: aislePaths[c], y: -50,
+       tx: xOffsets[c] + slotW / 2, ty: parkY + r * (slotH + 12) + slotH / 2,
+       angle: Math.PI/2, state: 'enter',
+       color: CAR_COLORS[Math.floor(Math.random()*CAR_COLORS.length)],
+       wait: 0, slot: target, c: c
+     };
+  }
+
+  let frame = 0;
+  function draw() {
+    frame++;
+    ctx.fillStyle = '#1c2333'; ctx.fillRect(0, 0, W, H);
+    // Asphalt
+    ctx.fillStyle = '#21293d'; ctx.fillRect(0, 68, W, H - 136);
+    ctx.fillStyle = '#171e2b'; ctx.fillRect(0, 0, W, 68);
+    ctx.fillStyle = '#171e2b'; ctx.fillRect(0, H - 68, W, 68);
+    // Lane dashes at center aisle
+    ctx.save(); ctx.strokeStyle = 'rgba(255,220,0,.5)'; ctx.lineWidth = 2; ctx.setLineDash([20, 15]);
+    ctx.beginPath(); ctx.moveTo(W/2, 68); ctx.lineTo(W/2, H - 68); ctx.stroke();
+    ctx.setLineDash([]); ctx.restore();
+    // Entry/Exit banners
+    ctx.fillStyle = 'rgba(0,255,136,.12)'; ctx.fillRect(0, 0, W, 68);
+    ctx.fillStyle = 'rgba(255,51,102,.12)'; ctx.fillRect(0, H - 68, W, 68);
+    ctx.fillStyle = '#00ff88'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center';
+    ctx.fillText('\u25bc VEHICLE ENTRY GATE \u2014 GATE A \u25bc', W / 2, 42);
+    ctx.fillStyle = '#ff3366';
+    ctx.fillText('\u25b2 VEHICLE EXIT GATE \u2014 GATE B \u25b2', W / 2, H - 40);
+    // Row labels
+    ['Row A', 'Row B', 'Row C', 'Row D'].forEach((lbl, r) => {
+      const ry = parkY + r * (slotH + 12) + slotH / 2 + 5;
+      ctx.fillStyle = 'rgba(0,245,255,.65)'; ctx.font = '12px Rajdhani,sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText(lbl, 8, ry);
+    });
+    // Parking slots
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const si = r * cols + c; const slot = SLOTS[si]; if (!slot) continue;
+      const cls = getSlotClass(slot);
+      const sx = xOffsets[c], sy = parkY + r * (slotH + 12);
+      const bg = { available: 'rgba(0,255,136,.1)', occupied: 'rgba(255,51,102,.15)', reserved: 'rgba(59,130,246,.2)', vip: 'rgba(168,85,247,.15)', ev: 'rgba(249,115,22,.15)', handicap: 'rgba(251,191,36,.12)', family: 'rgba(6,182,212,.12)', maintenance: 'rgba(107,114,128,.1)' }[cls] || 'rgba(255,255,255,.04)';
+      const brd = { available: 'rgba(0,255,136,.7)', occupied: 'rgba(255,51,102,.85)', reserved: 'rgba(59,130,246,.9)', vip: 'rgba(168,85,247,.8)', ev: 'rgba(249,115,22,.8)', handicap: 'rgba(251,191,36,.8)', family: 'rgba(6,182,212,.8)', maintenance: 'rgba(107,114,128,.5)' }[cls] || 'rgba(255,255,255,.2)';
+      ctx.fillStyle = bg; ctx.fillRect(sx, sy, slotW, slotH);
+      ctx.strokeStyle = brd; ctx.lineWidth = 2; ctx.strokeRect(sx + 1, sy + 1, slotW - 2, slotH - 2);
+      if (slot.status === 'occupied' || slot.status === 'reserved') {
+        // Only draw parked car if it's not the active parker mid-animation
+        if (activeParker && activeParker.slot === slot && activeParker.state !== 'parked') continue;
+        const isUser = slot.plate === STATE.user?.vehicle;
+        ctx.fillStyle = isUser ? '#00f5ff' : CAR_COLORS[si % 8];
+        ctx.beginPath(); ctx.roundRect(sx + slotW / 2 - 22, sy + 10, 44, slotH - 20, 5); ctx.fill();
+        ctx.fillStyle = 'rgba(200,240,255,.5)'; ctx.fillRect(sx + slotW / 2 - 16, sy + 14, 13, 9); ctx.fillRect(sx + slotW / 2 + 3, sy + 14, 13, 9);
+        ctx.fillStyle = 'rgba(255,255,150,.9)'; ctx.fillRect(sx + slotW / 2 - 20, sy + 12, 9, 6); ctx.fillRect(sx + slotW / 2 + 11, sy + 12, 9, 6);
+        if (isUser) { ctx.strokeStyle = '#00f5ff'; ctx.lineWidth = 2; ctx.strokeRect(sx + slotW / 2 - 24, sy + 8, 48, slotH - 16); }
+      }
+      ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.font = 'bold 12px Orbitron,monospace'; ctx.textAlign = 'center';
+      ctx.fillText(slot.id, sx + slotW / 2, sy + slotH - 5);
+    }
+    
+    // Animated car parking
+    if (!activeParker && Math.random() < 0.02) activeParker = spawnParker();
+    if (activeParker) {
+      const p = activeParker;
+      const speed = 2.5;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle);
+      ctx.fillStyle = p.color; ctx.beginPath(); ctx.roundRect(-16, -26, 32, 52, 5); ctx.fill();
+      ctx.fillStyle = 'rgba(200,240,255,.5)'; ctx.fillRect(-12, -20, 10, 8); ctx.fillRect(2, -20, 10, 8);
+      ctx.fillStyle = 'rgba(255,50,50,.9)'; ctx.fillRect(-14, 20, 10, 5); ctx.fillRect(4, 20, 10, 5);
+      
+      // AI Tracking Box
+      ctx.rotate(-p.angle);
+      const scanAmt = Math.sin(frame*0.1);
+      ctx.strokeStyle = `rgba(0,245,255,${0.5+scanAmt*0.3})`;
+      ctx.lineWidth = 1.5; ctx.strokeRect(-22, -32, 44, 64);
+      ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(-22, -45, 44, 10);
+      ctx.fillStyle = '#00f5ff'; ctx.font = '8px Orbitron'; ctx.textAlign = 'center';
+      ctx.fillText(`AI P-NAV`, 0, -37);
+      ctx.restore();
+
+      if (p.state === 'enter') {
+        p.y += speed;
+        if (p.y >= p.ty) { p.y = p.ty; p.state = 'turn'; }
+      } else if (p.state === 'turn') {
+        const targetAngle = (p.tx < p.x) ? Math.PI : 0;
+        let dAngle = targetAngle - p.angle;
+        if (dAngle > Math.PI) dAngle -= 2*Math.PI;
+        if (dAngle < -Math.PI) dAngle += 2*Math.PI;
+        p.angle += dAngle * 0.15;
+        if (Math.abs(dAngle) < 0.05) { p.angle = targetAngle; p.state = 'park'; }
+      } else if (p.state === 'park') {
+        const dx = p.tx - p.x;
+        if (Math.abs(dx) > speed) { p.x += Math.sign(dx) * speed; }
+        else { p.x = p.tx; p.state = 'parked'; p.slot.status = 'occupied'; p.slot.plate = 'AI-NAV'; }
+      } else if (p.state === 'parked') {
+        p.wait++;
+        if (p.wait > 180) { p.state = 'leave_turn_out'; p.slot.status = 'available'; p.slot.plate = ''; p.angle += Math.PI; } // insta-turn around just for leaving
+      } else if (p.state === 'leave_turn_out') {
+        const dx = aislePaths[p.c] - p.x;
+        if (Math.abs(dx) > speed) { p.x += Math.sign(dx)*speed; }
+        else { p.x = aislePaths[p.c]; p.state = 'leave_turn_down'; }
+      } else if (p.state === 'leave_turn_down') {
+        let dAngle = (-Math.PI/2) - p.angle;
+        if (dAngle < -Math.PI) dAngle += 2*Math.PI;
+        p.angle += dAngle * 0.2;
+        if (Math.abs(dAngle) < 0.05) { p.angle = -Math.PI/2; p.state = 'exit'; }
+      } else if (p.state === 'exit') {
+        p.y -= speed;
+        if (p.y < -100) activeParker = null;
+      }
+    }
+    // Scanlines + vignette + night-vision tint
+    for (let y = 0; y < H; y += 4) { ctx.fillStyle = 'rgba(0,0,0,.06)'; ctx.fillRect(0, y, W, 2); }
+    const vg = ctx.createRadialGradient(W / 2, H / 2, H * .35, W / 2, H / 2, H * .8);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(0,20,0,.05)'; ctx.fillRect(0, 0, W, H);
+    // HUD overlay
+    const ts = new Date().toLocaleTimeString('en-IN');
+    ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(6, 6, 230, 26);
+    ctx.fillStyle = '#00ff88'; ctx.font = 'bold 13px Orbitron,monospace'; ctx.textAlign = 'left';
+    ctx.fillText(`CAM${seed + 1} \u2022 ${ts} \u2022 1080p`, 12, 24);
+    const blink = Math.sin(frame * .05) > 0;
+    ctx.fillStyle = blink ? 'rgba(255,51,102,.95)' : 'rgba(255,51,102,.2)';
+    ctx.beginPath(); ctx.arc(W - 18, 18, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ff3366'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'right';
+    ctx.fillText('\u25cf REC', W - 30, 22);
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+// ─── SIDEBAR NAVIGATION ───────────────────────────────────
+function switchView(view) {
+  STATE.currentView = view;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const el = document.getElementById('view-' + view);
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.toggle('active', i.dataset.view === view));
+  if (view === 'alerts' || view === 'command') renderChat();
+}
+
+// ─── ANALYTICS ────────────────────────────────────────────
+let chartsInit = false;
+function renderAnalytics() {
+  if (chartsInit || !window.Chart) return;
+  setTimeout(() => {
+    chartsInit = true;
+    const ctx1 = document.getElementById('peak-chart');
+    if (ctx1) new Chart(ctx1, { type: 'bar', data: { labels: ['6am', '7am', '8am', '9am', '10am', '11am', '12pm', '1pm', '2pm', '3pm', '4pm', '5pm', '6pm', '7pm', '8pm'], datasets: [{ label: 'Occupancy %', data: [10, 25, 60, 85, 90, 75, 65, 70, 68, 72, 80, 88, 78, 60, 45], backgroundColor: 'rgba(0,245,255,.2)', borderColor: '#00f5ff', borderWidth: 2, borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: 'rgba(224,244,255,.5)', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.05)' } }, y: { ticks: { color: 'rgba(224,244,255,.5)' }, grid: { color: 'rgba(255,255,255,.05)' }, max: 100 } } } });
+    const ctx2 = document.getElementById('pie-chart');
+    if (ctx2) new Chart(ctx2, { type: 'doughnut', data: { labels: ['Regular', 'EV', 'VIP', 'HC', 'Family'], datasets: [{ data: [10, 2, 1, 1, 1], backgroundColor: ['#00f5ff', '#f97316', '#a855f7', '#fbbf24', '#06b6d4'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: 'rgba(224,244,255,.7)', boxWidth: 12 } } } } });
+  }, 350);
+}
+
+// ─── LEADERBOARD ─────────────────────────────────────────
+async function renderLeaderboard() {
+  const container = document.getElementById('leaderboard-list');
+  if (!container) return;
+  let data;
+  try { const r = await fetch('data/leaderboard.json'); data = await r.json(); }
+  catch (e) { data = getDefaultLeaderboard(); }
+  const userVehicle = STATE.user?.vehicle || 'MH12AB3456';
+  container.innerHTML = data.map(p => `
+    <div class="lb-row ${p.vehicle === userVehicle ? 'me' : ''}">
+      <div class="lb-rank ${p.medal === 'gold' ? 'medal-gold' : p.medal === 'silver' ? 'medal-silver' : p.medal === 'bronze' ? 'medal-bronze' : ''}">${p.medal === 'gold' ? '🥇' : p.medal === 'silver' ? '🥈' : p.medal === 'bronze' ? '🥉' : '#' + p.rank}</div>
+      <div class="lb-avatar">${p.initials}</div>
+      <div class="lb-info">
+        <div class="lb-name">${p.name} ${p.vehicle === userVehicle ? '⭐' : ''}</div>
+        <div class="lb-vehicle">${p.vehicle} · ${p.type}</div>
+      </div>
+      <div>
+        <div class="lb-score">${p.co2Saved} kg CO₂</div>
+        <div style="font-size:0.7rem;color:var(--muted)">Score: ${p.ecoScore}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function getDefaultLeaderboard() {
+  return [
+    { rank: 1, name: 'Priya Nair', initials: 'PN', vehicle: 'KA05XY2233', type: 'EV', co2Saved: 18.4, ecoScore: 98, medal: 'gold' },
+    { rank: 2, name: 'Ravi Kumar', initials: 'RK', vehicle: 'MH09AB4567', type: 'EV', co2Saved: 15.2, ecoScore: 94, medal: 'silver' },
+    { rank: 3, name: 'Ananya Iyer', initials: 'AI', vehicle: 'TN03CD8901', type: 'Bike', co2Saved: 12.7, ecoScore: 91, medal: 'bronze' },
+    { rank: 4, name: 'Arjun Sharma', initials: 'AS', vehicle: 'MH12AB3456', type: 'SUV', co2Saved: 2.3, ecoScore: 76, medal: '' },
+  ];
+}
+
+// ─── ECO ─────────────────────────────────────────────────
+let ecoChartsInit = false;
+function renderEco() {
+  renderSolarGrid();
+  setTimeout(() => {
+    if (ecoChartsInit || !window.Chart) return;
+    ecoChartsInit = true;
+    const c1 = document.getElementById('eco-weekly-chart');
+    if (c1) new Chart(c1, { type: 'line', data: { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], datasets: [{ label: 'CO\u2082 Saved (kg)', data: [1.2, 2.4, 1.8, 3.1, 2.3, 4.0, 2.5], borderColor: '#00ff88', backgroundColor: 'rgba(0,255,136,.1)', tension: .4, fill: true, pointBackgroundColor: '#00ff88', pointRadius: 4 }, { label: 'City Avg', data: [2.7, 2.7, 2.7, 2.7, 2.7, 2.7, 2.7], borderColor: 'rgba(255,51,102,.5)', borderDash: [6, 4], tension: 0, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: 'rgba(224,244,255,.7)', boxWidth: 12 } } }, scales: { x: { ticks: { color: 'rgba(224,244,255,.5)' }, grid: { color: 'rgba(255,255,255,.05)' } }, y: { ticks: { color: 'rgba(224,244,255,.5)' }, grid: { color: 'rgba(255,255,255,.05)' } } } } })
+    const c2 = document.getElementById('eco-co2-bar');
+    if (c2) new Chart(c2, { type: 'bar', data: { labels: ['Your Session', 'City Average', 'Lot Best'], datasets: [{ data: [0.4, 2.7, 0.1], backgroundColor: ['rgba(0,255,136,.4)', 'rgba(255,51,102,.4)', 'rgba(0,245,255,.4)'], borderColor: ['#00ff88', '#ff3366', '#00f5ff'], borderWidth: 2, borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: 'rgba(224,244,255,.5)' }, grid: { color: 'rgba(255,255,255,.05)' } }, y: { ticks: { color: 'rgba(224,244,255,.5)' }, grid: { color: 'rgba(255,255,255,.05)' }, title: { display: true, text: 'kg CO\u2082', color: 'rgba(224,244,255,.5)' } } } } });
+  }, 500);
+}
+
+function renderSolarGrid() {
+  const grid = document.getElementById('solar-grid');
+  if (!grid) return;
+  const types = [
+    { cls: '#fbbf24', label: '☀️' }, { cls: '#3b82f6', label: '🌑' }, { cls: '#fbbf24', label: '☀️' }, { cls: '#60a5fa', label: '🌤️' },
+    { cls: '#60a5fa', label: '🌤️' }, { cls: '#fbbf24', label: '☀️' }, { cls: '#3b82f6', label: '🌑' }, { cls: '#fbbf24', label: '☀️' },
+    { cls: '#3b82f6', label: '🌑' }, { cls: '#fbbf24', label: '☀️' }, { cls: '#60a5fa', label: '🌤️' }, { cls: '#fbbf24', label: '☀️' },
+    { cls: '#fbbf24', label: '☀️' }, { cls: '#3b82f6', label: '🌑' }, { cls: '#fbbf24', label: '☀️' }, { cls: '#60a5fa', label: '🌤️' },
+  ];
+  grid.innerHTML = types.map(t => `<div class="solar-cell" style="background:${t.cls}22;border:1px solid ${t.cls}44">${t.label}</div>`).join('');
+}
+
+// ─── COMMAND CENTRE CHAT ─────────────────────────────────
+const CHAT_LOG = [
+  { from:'control', name:'Control Room', msg:'SmartPark Command Centre ONLINE. All cameras active. Cam 3 Zone B → OFFLINE.', time:'09:28', type:'received' },
+  { from:'me',      name:'Operator',     msg:'S10 overstay alert — MH14GH5566, 130 min. Tow dispatch required?', time:'09:31', type:'sent' },
+  { from:'control', name:'Control Room', msg:'Confirmed. 2nd warning SMS issued. No response in 10 min → dispatch tow. anomalyDetect.m flagged.', time:'09:32', type:'received' },
+  { from:'control', name:'Control Room', msg:'⚠ Camera 3 (192.168.1.103) offline. Technician ETA 15 min.', time:'09:45', type:'received' },
+  { from:'me',      name:'Operator',     msg:'Acknowledged. Manual Zone B patrol initiated.', time:'09:46', type:'sent' },
+  { from:'control', name:'Control Room', msg:'Capacity 68%. Peak 09:00–11:00. Prep overflow signage for Row D.', time:'09:52', type:'received' },
+];
+const AUTO_REPLIES = [
+  'Acknowledged. Logging to incident report.',
+  'Copy that. Ground staff alerted.',
+  'MATLAB anomaly detection active. Monitoring.',
+  'Understood. Dispatching field officer.',
+  'SMS + WhatsApp dispatch initiated.',
+  'Camera feeds preserved. Recording archived.',
+  'Command Centre confirms. Action noted.',
+];
+let chatRendered = false;
+function renderChat() {
+  const feed = document.getElementById('chat-feed');
+  if (!feed) return;
+  if (chatRendered && feed.children.length > 0) return;
+  chatRendered = true;
+  feed.innerHTML = '';
+  CHAT_LOG.forEach(m => _appendBubble(m));
+  setTimeout(() => { feed.scrollTop = feed.scrollHeight; }, 50);
+}
+function _appendBubble(m) {
+  const feed = document.getElementById('chat-feed');
+  if (!feed) return;
+  const div = document.createElement('div');
+  div.className = `chat-msg ${m.type}`;
+  div.innerHTML = `<div class="chat-bubble"><div class="chat-sender">${m.name}</div><div class="chat-text">${m.msg}</div><div class="chat-time">${m.time}</div></div>`;
+  feed.appendChild(div);
+  feed.scrollTop = feed.scrollHeight;
+}
+function sendChatMessage() {
+  const inp = document.getElementById('chat-input');
+  if (!inp || !inp.value.trim()) return;
+  const txt = inp.value.trim();
+  const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  _appendBubble({ from:'me', name: STATE.user?.name || 'Operator', msg: txt, time: now, type:'sent' });
+  inp.value = '';
+  setTimeout(() => {
+    _appendBubble({ from:'control', name:'Control Room', msg: AUTO_REPLIES[Math.floor(Math.random() * AUTO_REPLIES.length)], time: new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}), type:'received' });
+  }, 900 + Math.random() * 1200);
+}
+function handleFileUpload(inp) {
+  if (!inp.files || !inp.files[0]) return;
+  const f = inp.files[0];
+  const feed = document.getElementById('chat-feed');
+  if (!feed) return;
+  const now = new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+  const isImg = f.type.startsWith('image/');
+  const div = document.createElement('div');
+  div.className = 'chat-msg sent';
+  div.innerHTML = `<div class="chat-bubble"><div class="chat-sender">${STATE.user?.name||'Operator'}</div><div class="chat-text">📎 <strong>${f.name}</strong><br><span style="font-size:.7rem;color:var(--muted);">${(f.size/1024).toFixed(1)} KB · ${f.type||'file'}</span>${isImg?`<br><img src="${URL.createObjectURL(f)}" style="max-width:100%;border-radius:6px;margin-top:6px;border:1px solid rgba(0,245,255,.3);">`:''}</div><div class="chat-time">${now}</div></div>`;
+  feed.appendChild(div); feed.scrollTop = feed.scrollHeight;
+  inp.value = '';
+  setTimeout(() => _appendBubble({ from:'control', name:'Control Room', msg:`✅ File "${f.name}" received and archived in incident log.`, time: new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}), type:'received' }), 800);
+}
+function renderAlerts() { /* HTML static */ }
+
+function toggleEmergency() {
+  STATE.emergencyMode = !STATE.emergencyMode;
+  const btn = document.getElementById('emergency-btn');
+  const overlay = document.getElementById('emergency-overlay');
+  if (STATE.emergencyMode) {
+    btn.textContent = '🔴 EMERGENCY MODE ACTIVE — CLICK TO DEACTIVATE';
+    btn.classList.add('active');
+    overlay.classList.add('active');
+    speak('Alert. Emergency vehicle access mode is now active. Please clear the main lane immediately.');
+    showToast('🚨 Emergency mode activated! Clear main lane.', 'warning');
+  } else {
+    btn.textContent = '🚨 ACTIVATE EMERGENCY MODE';
+    btn.classList.remove('active');
+    overlay.classList.remove('active');
+    speak('Emergency mode deactivated. Normal operations resumed.');
+  }
+}
+
+// ─── SETTINGS (VOICE TOGGLE) ─────────────────────────────
+function toggleVoice() {
+  STATE.voiceEnabled = !STATE.voiceEnabled;
+  const t = document.getElementById('voice-toggle');
+  if (t) t.classList.toggle('on', STATE.voiceEnabled);
+}
+
+// ─── INIT ────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  // Check existing session
+  const stored = localStorage.getItem('sp_user');
+  if (stored) STATE.user = JSON.parse(stored);
+  runBoot();
+});
+
+</script>
+  <script>
+    // ── EXTRA WIRING ───────────────────────────────────────────
+    (function () {
+      // Uptime counter
+      const bt = Date.now();
+      setInterval(() => {
+        const el = document.getElementById('uptime-display'); if (!el) return;
+        const d = Math.floor((Date.now() - bt) / 1000), h = Math.floor(d / 3600), m = Math.floor((d % 3600) / 60), s = d % 60;
+        el.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }, 1000);
+
+      // My Booking mini-map renderer
+      window.renderBookingMiniMap = function () {
+        const grid = document.getElementById('booking-mini-map'); if (!grid) return;
+        grid.innerHTML = '';
+        SLOTS.forEach(slot => {
+          const cls = getSlotClass(slot);
+          const isMe = slot.id === STATE.reservedSlot;
+          const bg = isMe ? 'rgba(0,245,255,.35)' : cls === 'occupied' ? 'rgba(255,51,102,.35)' : cls === 'available' ? 'rgba(0,255,136,.2)' : cls === 'reserved' ? 'rgba(59,130,246,.3)' : 'rgba(107,114,128,.2)';
+          const border = isMe ? 'var(--cyan)' : 'rgba(255,255,255,.08)';
+          grid.innerHTML += `<div class="bm-cell" style="background:${bg};border-color:${border};${isMe ? 'box-shadow:0 0 8px rgba(0,245,255,.5);' : ''}">${slot.id.replace('S', '')}</div>`;
+        });
+      };
+
+      // Override switchView to also render mini-map for booking
+      const origSV = window.switchView;
+      window.switchView = function (view) {
+        origSV(view);
+        if (view === 'booking') { renderBookingMiniMap(); }
+        if (view === 'alerts') { setTimeout(renderChat, 150); }
+        if (view === 'eco') { renderEcoCharts(); }
+      };
+
+      // Tab register reset wizard
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.addEventListener('click', () => { if (b.dataset.tab === 'register') setTimeout(() => goWizard(1), 10); });
+      });
+
+      // Close slot modal on backdrop click
+      document.getElementById('slot-modal').addEventListener('click', function (e) {
+        if (e.target === this) closeSlotModal();
+      });
+    })();
+  </script>
+</body>
+
+</html>

@@ -105,6 +105,18 @@ function linRegR2(x, y) {
   return { r2: parseFloat((r * r).toFixed(4)), slope: parseFloat((num / x.reduce((s, xi) => s + (xi - mx) ** 2, 0)).toFixed(6)) };
 }
 
+// Use custom tooltip for ScatterChart to replace dark text
+const ScatterTooltip = ({ active, payload }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ background: 'rgba(17,17,17,0.98)', border: '1px solid rgba(255,107,0,0.2)', borderRadius: 6, padding: '10px 14px', fontFamily: 'JetBrains Mono', fontSize: '0.75rem' }}>
+      <div style={{ color: '#F5F5F5', marginBottom: 6, fontFamily: 'Syne', fontSize: '0.65rem' }}>Asset Returns</div>
+      <div style={{ color: '#00FF88', marginBottom: 4 }}>{payload[0]?.name}: {payload[0]?.value?.toFixed(4)}%</div>
+      <div style={{ color: '#FF6B00' }}>{payload[1]?.name}: {payload[1]?.value?.toFixed(4)}%</div>
+    </div>
+  );
+};
+
 export function RegressionPanel() {
   const stocks = useArthaStore(s => s.stocks);
   const selectedSymbol = useArthaStore(s => s.selectedSymbol);
@@ -154,9 +166,8 @@ export function RegressionPanel() {
           <ScatterChart>
             <XAxis type="number" dataKey="x" name={selectedSymbol} tick={{ fontFamily: 'JetBrains Mono', fontSize: 8, fill: '#444' }} axisLine={false} tickLine={false} label={{ value: `${selectedSymbol} Returns (%)`, position: 'insideBottom', offset: -4, style: { fontFamily: 'Syne', fontSize: 9, fill: '#555' } }} />
             <YAxis type="number" dataKey="y" name={stockB} tick={{ fontFamily: 'JetBrains Mono', fontSize: 8, fill: '#444' }} axisLine={false} tickLine={false} />
-            <Tooltip cursor={{ strokeDasharray: '3 3', stroke: '#444' }}
-              contentStyle={{ background: 'rgba(17,17,17,0.98)', border: '1px solid rgba(255,107,0,0.2)', borderRadius: 6, fontFamily: 'JetBrains Mono', fontSize: '0.72rem' }} />
-            <Scatter data={scatterData} shape="circle">
+            <Tooltip content={<ScatterTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#444' }} />
+            <Scatter data={scatterData} shape="circle" isAnimationActive={false}>
               {scatterData.map((d, i) => {
                 const isOutlier = outliers.includes(d);
                 return <Cell key={i} fill={isOutlier ? '#FF6B00' : 'rgba(255,107,0,0.3)'} r={isOutlier ? 5 : 3}

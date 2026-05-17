@@ -103,17 +103,24 @@ export default function AlertPanel() {
   // Auto-generate alerts periodically
   useEffect(() => {
     const generate = () => {
-      const stock = stocks[selectedSymbol];
-      if (!stock?.stats) return;
-      const alert = generateAlert(selectedSymbol, stock.stats, stock.price);
-      if (alert) addAlert(alert);
+      const liveStocks = useArthaStore.getState().stocks;
+      const addAlertFn = useArthaStore.getState().addAlert;
+      const syms = Object.keys(liveStocks);
+      // Try each stock until we get an alert
+      for (const sym of syms) {
+        let stock = liveStocks[sym];
+        if (!stock?.stats) continue;
+        const alert = generateAlert(sym, stock.stats, stock.price);
+        if (alert) { addAlertFn(alert); break; }
+      }
     };
 
-    // Initial alert
-    setTimeout(generate, 3000);
-    const interval = setInterval(generate, 90000 + Math.random() * 60000);
-    return () => clearInterval(interval);
-  }, [selectedSymbol]);
+    // Generate first alert quickly
+    const initTimer = setTimeout(generate, 2000);
+    // Then periodically
+    const interval = setInterval(generate, 30000);
+    return () => { clearTimeout(initTimer); clearInterval(interval); };
+  }, []);
 
   const activeAlerts = alerts.filter(a => !a.dismissed);
 

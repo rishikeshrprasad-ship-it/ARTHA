@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle, X } from 'lucide-react';
 import { useArthaStore } from '../../store/arthaStore';
 
 const METRIC_INFO = {
@@ -12,18 +12,24 @@ const METRIC_INFO = {
   zScore: { label: 'Z-SCORE', unit: 'σ', desc: 'Current deviation from mean (in std devs)', formula: 'Z = (x - μ) / σ', high: 'Overbought — statistically high price', low: 'Oversold — statistically low price', icon: '⚡' },
 };
 
+import { createPortal } from 'react-dom';
+
 function TooltipModal({ metric, stats, onClose }) {
   const info = METRIC_INFO[metric];
   const value = stats[metric];
-  return (
+  
+  return createPortal(
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       onClick={onClose}
-      style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
     >
-      <div onClick={e => e.stopPropagation()} className="glass-card" style={{ maxWidth: 360, width: '90%', padding: 24 }}>
+      <div onClick={e => e.stopPropagation()} className="glass-card" style={{ maxWidth: 360, width: '90%', padding: 24, position: 'relative' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', cursor: 'pointer', color: '#888', display: 'flex' }}>
+          <X size={16} />
+        </button>
         <div style={{ fontSize: '2rem', marginBottom: 12 }}>{info.icon}</div>
         <div style={{ fontFamily: 'Orbitron', fontSize: '0.9rem', color: '#FF6B00', marginBottom: 6 }}>{info.label}</div>
         <p style={{ fontFamily: 'Syne', fontSize: '0.85rem', color: '#888', marginBottom: 14 }}>{info.desc}</p>
@@ -42,7 +48,8 @@ function TooltipModal({ metric, stats, onClose }) {
           </div>
         </div>
       </div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 }
 

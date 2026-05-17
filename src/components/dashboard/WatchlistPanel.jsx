@@ -17,7 +17,6 @@ function MiniSparkline({ candles, up }) {
 }
 
 const PRESET_TABS = ['My List', 'NIFTY 50', 'NIFTY BANK'];
-const ALL_SYMBOLS = Object.keys(STOCKS);
 
 export default function WatchlistPanel() {
   const stocks = useArthaStore(s => s.stocks);
@@ -30,12 +29,16 @@ export default function WatchlistPanel() {
   const [query, setQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
 
+  const ALL_SYMBOLS = Object.keys(stocks);
+  
   const displaySymbols = tab === 'My List'
     ? watchlist
-    : ALL_SYMBOLS;
+    : tab === 'NIFTY BANK'
+    ? ALL_SYMBOLS.filter(s => ['HDFCBANK', 'ICICIBANK', 'AXISBANK', 'KOTAKBANK', 'SBIN', 'INDUSINDBK'].includes(s))
+    : ALL_SYMBOLS; // NIFTY 50 shows all
 
   const filtered = showSearch
-    ? ALL_SYMBOLS.filter(s => s.toLowerCase().includes(query.toLowerCase()) || STOCKS[s]?.name.toLowerCase().includes(query.toLowerCase()))
+    ? ALL_SYMBOLS.filter(s => s.toLowerCase().includes(query.toLowerCase()) || stocks[s]?.name.toLowerCase().includes(query.toLowerCase()))
     : displaySymbols;
 
   return (
@@ -157,6 +160,22 @@ export default function WatchlistPanel() {
             </motion.div>
           );
         })}
+
+        {/* Dynamic add button for missing stocks */}
+        {showSearch && query.trim() !== '' && !ALL_SYMBOLS.some(s => s.toLowerCase() === query.trim().toLowerCase()) && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '8px 12px', textAlign: 'center' }}>
+            <button
+              onClick={() => {
+                useArthaStore.getState().addCustomStock(query);
+                setQuery('');
+                setShowSearch(false);
+              }}
+              style={{ padding: '8px 16px', background: 'rgba(0,255,136,0.1)', border: '1px solid rgba(0,255,136,0.3)', color: '#00FF88', borderRadius: 6, fontFamily: 'JetBrains Mono', fontSize: '0.75rem', cursor: 'pointer', width: '100%' }}
+            >
+              + Fetch & Add {query.toUpperCase()}
+            </button>
+          </motion.div>
+        )}
       </div>
     </div>
   );

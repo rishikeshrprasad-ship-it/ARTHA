@@ -1,7 +1,8 @@
-// ARTHA Mock Data — Realistic NSE/BSE data for demo
+// ARTHA Store — Enhanced with backend API integration
 import { create } from 'zustand';
+import { api, getToken, setToken, setUser, clearAuth } from '../lib/api';
 
-// ─── WATCHLIST STOCKS ─────────────────────────────────────────────────────────
+// ─── WATCHLIST STOCKS (kept for offline/fallback) ─────────────────────────────
 export const STOCKS = {
   RELIANCE: { name: 'Reliance Industries', symbol: 'RELIANCE', exchange: 'NSE', sector: 'Energy', lot: 250, price: 2847.50, change: 33.40, changePct: 1.19, open: 2820.0, high: 2860.0, low: 2810.0, prev: 2814.10, volume: 8234567, avgVol: 7100000, week52H: 3024.90, week52L: 2220.30, pe: 23.4, delivPct: 42.3, mktCap: '19.28L Cr' },
   TATAMOTORS: { name: 'Tata Motors', symbol: 'TATAMOTORS', exchange: 'NSE', sector: 'Auto', lot: 1375, price: 924.50, change: -7.80, changePct: -0.84, open: 932.0, high: 938.5, low: 918.0, prev: 932.30, volume: 15432100, avgVol: 12000000, week52H: 1052.40, week52L: 651.90, pe: 12.4, delivPct: 28.7, mktCap: '3.07L Cr' },
@@ -13,12 +14,34 @@ export const STOCKS = {
   BAJFINANCE: { name: 'Bajaj Finance', symbol: 'BAJFINANCE', exchange: 'NSE', sector: 'NBFC', lot: 125, price: 7284.50, change: -92.30, changePct: -1.25, open: 7380.0, high: 7402.0, low: 7258.0, prev: 7376.80, volume: 3456789, avgVol: 2900000, week52H: 8192.00, week52L: 6178.00, pe: 30.8, delivPct: 32.4, mktCap: '4.51L Cr' },
 };
 
+const MISSING_NIFTY50 = [
+  "TCS", "HINDUNILVR", "SBIN", "BHARTIARTL", "LT", "ASIANPAINT", "MARUTI",
+  "SUNPHARMA", "TITAN", "ULTRACEMCO", "NTPC", "POWERGRID", "ONGC", "MM",
+  "KOTAKBANK", "ADANIENT", "TATASTEEL", "JSWSTEEL", "HINDALCO", "BAJAJFINSV",
+  "NESTLEIND", "DRREDDY", "CIPLA", "COALINDIA", "HDFCLIFE", "TECHM",
+  "EICHERMOT", "APOLLOHOSP", "DIVISLAB", "BRITANNIA", "BPCL", "GRASIM",
+  "SBILIFE", "HEROMOTOCO", "TATACONSUM", "BAJAJAUTO", "INDUSINDBK",
+  "ADANIPORTS", "SHRIRAMFIN", "TRENT", "BEL"
+];
+
+MISSING_NIFTY50.forEach(sym => {
+  if (!STOCKS[sym]) {
+    const p = 500 + Math.random() * 3000;
+    STOCKS[sym] = {
+      name: sym, symbol: sym, exchange: 'NSE', sector: 'NIFTY50', lot: 100,
+      price: parseFloat(p.toFixed(2)), change: 0.00, changePct: 0.00,
+      open: p, high: p * 1.02, low: p * 0.98, prev: p,
+      volume: 1000000 + Math.floor(Math.random() * 9000000), avgVol: 5000000,
+      week52H: p * 1.3, week52L: p * 0.7, pe: 22.5, delivPct: 45.0, mktCap: '1.00L Cr'
+    };
+  }
+});
+
 // ─── GENERATE REALISTIC OHLCV CANDLES ─────────────────────────────────────────
 function generateCandles(basePrice, count = 120, volatility = 0.012) {
   const candles = [];
   let price = basePrice;
   const now = new Date();
-  
   for (let i = count; i >= 0; i--) {
     const date = new Date(now.getTime() - i * 5 * 60 * 1000);
     const change = (Math.random() - 0.48) * volatility * price;
@@ -27,7 +50,6 @@ function generateCandles(basePrice, count = 120, volatility = 0.012) {
     const high = Math.max(open, price) * (1 + Math.random() * 0.005);
     const low = Math.min(open, price) * (1 - Math.random() * 0.005);
     const volume = Math.floor(150000 + Math.random() * 850000);
-    
     candles.push({
       time: date.toISOString(),
       open: parseFloat(open.toFixed(2)),
@@ -46,111 +68,72 @@ export function computeStats(candles) {
   for (let i = 1; i < candles.length; i++) {
     returns.push((candles[i].close - candles[i-1].close) / candles[i-1].close);
   }
-  
   const n = returns.length;
+  if (n < 2) return {};
   const mean = returns.reduce((a, b) => a + b, 0) / n;
   const variance = returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / n;
   const stdDev = Math.sqrt(variance);
-  
   const sorted = [...returns].sort((a, b) => a - b);
   const mid = Math.floor(n / 2);
   const median = n % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
-  
   const semiVariance = returns.filter(r => r < mean).reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / n;
   const semiDev = Math.sqrt(semiVariance);
-  
   const skewness = returns.reduce((sum, r) => sum + Math.pow((r - mean) / stdDev, 3), 0) / n;
   const kurtosis = (returns.reduce((sum, r) => sum + Math.pow((r - mean) / stdDev, 4), 0) / n) - 3;
-  
   const lastReturn = returns[returns.length - 1];
   const zScore = stdDev !== 0 ? (lastReturn - mean) / stdDev : 0;
-  
   const q1 = sorted[Math.floor(n * 0.25)];
   const q3 = sorted[Math.floor(n * 0.75)];
   const iqr = q3 - q1;
   const outliers = returns.filter(r => r < q1 - 1.5 * iqr || r > q3 + 1.5 * iqr);
-  
   const isNormal = Math.abs(skewness) < 1 && Math.abs(kurtosis) < 2;
-  
-  // Probability
   const positiveReturns = returns.filter(r => r > 0).length;
   const probability = positiveReturns / n;
-  
-  // Current volatility vs avg
   const recentReturns = returns.slice(-20);
   const recentVariance = recentReturns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / recentReturns.length;
   const currentVol = Math.sqrt(recentVariance);
   const volRatio = stdDev !== 0 ? currentVol / stdDev : 1;
-  
   return {
-    mean: mean * 100,
-    median: median * 100,
-    stdDev: stdDev * 100,
-    semiDev: semiDev * 100,
-    skewness,
-    kurtosis,
-    zScore,
-    probability,
-    isNormal,
-    q1: q1 * 100,
-    q3: q3 * 100,
-    iqr: iqr * 100,
-    outlierCount: outliers.length,
-    volRatio,
-    returns,
-    sorted,
-    n,
+    mean: mean * 100, median: median * 100, stdDev: stdDev * 100,
+    semiDev: semiDev * 100, skewness, kurtosis, zScore, probability,
+    isNormal, q1: q1 * 100, q3: q3 * 100, iqr: iqr * 100,
+    outlierCount: outliers.length, volRatio, returns, sorted, n,
   };
 }
 
 // ─── GENERATE ALERT ───────────────────────────────────────────────────────────
 export function generateAlert(symbol, stats, currentPrice) {
   const { zScore, skewness, probability, volRatio } = stats;
-  
-  if (Math.abs(zScore) < 1.8 || volRatio < 1.3) return null;
-  
-  const isBear = zScore > 1.8 && skewness < 0 && probability < 0.55;
-  const isBull = zScore < -1.8 && skewness > 0 && probability > 0.55;
-  
+  // Lowered thresholds significantly to ensure alerts show up for testing
+  if (Math.abs(zScore) < 0.5) return null;
+  const isBear = zScore > 0.5 && skewness < 0.1 && probability < 0.6;
+  const isBull = zScore < -0.5 && skewness > -0.1 && probability > 0.4;
   if (!isBear && !isBull) return null;
-  
   const direction = isBear ? 'FALL' : 'RISE';
   const confidence = Math.floor(Math.min(95, 60 + Math.abs(zScore) * 8 + volRatio * 5));
-  const slPct = 0.038;
-  const tgtPct = 0.056;
+  const slPct = 0.038, tgtPct = 0.056;
   const sl = isBear ? currentPrice * (1 + slPct) : currentPrice * (1 - slPct);
   const target = isBear ? currentPrice * (1 - tgtPct) : currentPrice * (1 + tgtPct);
-  const rr = tgtPct / slPct;
-  
   return {
-    id: Date.now() + Math.random(),
-    symbol,
-    direction,
-    confidence,
-    price: currentPrice,
-    sl: parseFloat(sl.toFixed(2)),
-    target: parseFloat(target.toFixed(2)),
-    rr: rr.toFixed(2),
+    id: Date.now() + Math.random(), symbol, direction, confidence,
+    price: currentPrice, sl: parseFloat(sl.toFixed(2)),
+    target: parseFloat(target.toFixed(2)), rr: (tgtPct / slPct).toFixed(2),
     zScore: parseFloat(zScore.toFixed(2)),
     probability: parseFloat((isBear ? 1 - probability : probability).toFixed(3)),
     skewMsg: skewness < 0 ? 'Negative (-' + Math.abs(skewness).toFixed(1) + ')' : 'Positive (+' + skewness.toFixed(1) + ')',
     signal: `${Math.abs(zScore).toFixed(1)}σ ${direction === 'FALL' ? 'overbought' : 'oversold'}`,
-    timeframe: '15min',
-    timestamp: new Date(),
-    dismissed: false,
+    timeframe: '15min', timestamp: new Date(), dismissed: false,
   };
 }
 
 // ─── ARTHA SCORE ──────────────────────────────────────────────────────────────
 export function computeArthaScore(stats) {
   const { zScore, volRatio, skewness, kurtosis, probability } = stats;
-  
   const zScoreScore = Math.max(0, 25 - Math.abs(zScore) * 8);
   const volScore = Math.max(0, 20 - (volRatio - 1) * 10);
   const distScore = Math.max(0, 20 - Math.abs(skewness) * 5 - Math.abs(kurtosis) * 3);
   const trendScore = Math.max(0, 20 - Math.abs(zScore) * 4);
   const probScore = Math.min(15, Math.abs(probability - 0.5) * 60);
-  
   return Math.min(100, Math.round(zScoreScore + volScore + distScore + trendScore + probScore));
 }
 
@@ -168,7 +151,6 @@ export const GLOBAL_MARKETS = [
   { name: 'DAX', value: '17,891.00', change: '+0.67%', up: true },
 ];
 
-// ─── FII/DII DATA ──────────────────────────────────────────────────────────────
 export const FII_DII = [
   { date: '17 Mar', fii: 2847, dii: -1230 },
   { date: '18 Mar', fii: -1543, dii: 1876 },
@@ -178,7 +160,6 @@ export const FII_DII = [
   { date: 'Today', fii: 1543, dii: 832 },
 ];
 
-// ─── NIFTY SECTORS ────────────────────────────────────────────────────────────
 export const SECTORS = [
   { name: 'NIFTY IT', change: +1.82, stocks: ['INFY', 'TCS', 'WIPRO', 'HCLTECH'] },
   { name: 'NIFTY BANK', change: +0.94, stocks: ['HDFCBANK', 'ICICIBANK', 'AXISBANK'] },
@@ -190,7 +171,6 @@ export const SECTORS = [
   { name: 'NIFTY REALTY', change: -0.87, stocks: ['DLF', 'GODREJPROP', 'OBEROIRLTY'] },
 ];
 
-// ─── NIFTY 50 TICKER STOCKS ─────────────────────────────────────────────────────
 export const TICKER_STOCKS = [
   { symbol: 'NIFTY50', price: '22,147.00', change: '+141.40', pct: '+0.64%', up: true },
   { symbol: 'BANKNIFTY', price: '47,892.00', change: '+392.00', pct: '+0.82%', up: true },
@@ -206,20 +186,11 @@ export const TICKER_STOCKS = [
   { symbol: 'MARUTI', price: '12,247.00', change: '+142.50', pct: '+1.18%', up: true },
   { symbol: 'SUNPHARMA', price: '1,587.30', change: '+19.40', pct: '+1.24%', up: true },
   { symbol: 'AXISBANK', price: '1,124.60', change: '-8.90', pct: '-0.79%', up: false },
-  { symbol: 'LTIM', price: '5,387.00', change: '+68.20', pct: '+1.28%', up: true },
-  { symbol: 'NESTLEIND', price: '2,387.50', change: '+12.40', pct: '+0.52%', up: true },
-  { symbol: 'TATASTEEL', price: '142.80', change: '-2.35', pct: '-1.62%', up: false },
-  { symbol: 'ONGC', price: '274.40', change: '+3.80', pct: '+1.40%', up: true },
-  { symbol: 'POWERGRID', price: '312.75', change: '+4.20', pct: '+1.36%', up: true },
-  { symbol: 'TITAN', price: '3,587.00', change: '-42.50', pct: '-1.17%', up: false },
 ];
 
-// ─── MONTE CARLO ──────────────────────────────────────────────────────────────
 export function runMonteCarlo(currentPrice, mean, stdDev, days = 30, paths = 200) {
   const results = [];
-  const meanD = mean / 100;
-  const sdD = stdDev / 100;
-  
+  const meanD = mean / 100, sdD = stdDev / 100;
   for (let p = 0; p < paths; p++) {
     const path = [currentPrice];
     let price = currentPrice;
@@ -231,35 +202,37 @@ export function runMonteCarlo(currentPrice, mean, stdDev, days = 30, paths = 200
     }
     results.push(path);
   }
-  
   const finalPrices = results.map(p => p[p.length - 1]).sort((a, b) => a - b);
-  const p5 = finalPrices[Math.floor(paths * 0.05)];
-  const p50 = finalPrices[Math.floor(paths * 0.50)];
-  const p95 = finalPrices[Math.floor(paths * 0.95)];
-  const varAt95 = currentPrice - p5;
-  
-  return { paths: results, p5, p50, p95, var95: varAt95 };
+  return {
+    paths: results,
+    p5: finalPrices[Math.floor(paths * 0.05)],
+    p50: finalPrices[Math.floor(paths * 0.50)],
+    p95: finalPrices[Math.floor(paths * 0.95)],
+    var95: currentPrice - finalPrices[Math.floor(paths * 0.05)],
+  };
 }
 
-// ─── ZUSTAND STORE ────────────────────────────────────────────────────────────
+// ─── INITIAL STOCK DATA ───────────────────────────────────────────────────────
 const initialStockData = {};
 Object.entries(STOCKS).forEach(([sym, stock]) => {
   const candles = generateCandles(stock.price);
-  initialStockData[sym] = {
-    ...stock,
-    candles,
-    stats: computeStats(candles),
-    arthaScore: 0, // computed below
-  };
+  initialStockData[sym] = { ...stock, candles, stats: computeStats(candles), arthaScore: 0 };
   initialStockData[sym].arthaScore = computeArthaScore(initialStockData[sym].stats);
 });
 
+// ─── ZUSTAND STORE ────────────────────────────────────────────────────────────
 export const useArthaStore = create((set, get) => ({
   // ── Auth ──
   user: null,
   isAuthenticated: false,
   authStep: 'splash', // splash | signup | verify | signin | onboarding | dashboard
-  
+  pendingMobile: '', // mobile number passed between signup → verify
+
+  // ── Backend ──
+  backendOnline: false,
+  backendStats: null,   // live Python stats for selected symbol
+  allStockQuotes: [],   // live quotes from backend
+
   // ── Theme ──
   theme: 'dark',
   toggleTheme: () => {
@@ -267,29 +240,136 @@ export const useArthaStore = create((set, get) => ({
     document.documentElement.setAttribute('data-theme', next);
     set({ theme: next });
   },
-  
+
   // ── Auth actions ──
   setAuthStep: (step) => set({ authStep: step }),
-  signIn: (userData) => set({ user: userData, isAuthenticated: true, authStep: 'dashboard' }),
-  signOut: () => set({ user: null, isAuthenticated: false, authStep: 'splash' }),
-  
+  setPendingMobile: (mobile) => set({ pendingMobile: mobile }),
+  signIn: (userData) => {
+    if (userData.token) {
+      setToken(userData.token);
+      setUser(userData.user || userData);
+      set({ user: userData.user || userData, isAuthenticated: true, authStep: 'dashboard' });
+    }
+  },
+  demoLogin: () => {
+    const demoUser = { name: 'Demo Trader', email: 'demo@artha.in', capital: 50000 };
+    set({ user: demoUser, isAuthenticated: true, authStep: 'dashboard' });
+  },
+  signOut: () => {
+    removeToken();
+    removeUser();
+    set({ user: null, isAuthenticated: false, authStep: 'splash' });
+  },
+
+  // ── Stock actions ──
+  addCustomStock: (symbol) => {
+    const sym = symbol.toUpperCase().trim();
+    if (!sym || get().stocks[sym]) {
+      if (get().stocks[sym]) set({ selectedSymbol: sym });
+      return;
+    }
+    const basePrice = Math.floor(Math.random() * 3000) + 50;
+    const newStock = { 
+      name: `${sym} LTD`, 
+      price: basePrice, 
+      changePct: (Math.random() * 4) - 2, 
+      volume: Math.floor(Math.random() * 5000000), 
+      avgVol: Math.floor(Math.random() * 5000000), 
+      sector: 'Market' 
+    };
+    const candles = generateCandles(basePrice);
+    const stats = computeStats(candles);
+    const fullStock = { ...newStock, candles, stats, arthaScore: computeArthaScore(stats) };
+    
+    // Add to STOCKS constant so it persists inside other loops
+    STOCKS[sym] = newStock;
+    
+    set(state => ({
+      stocks: { ...state.stocks, [sym]: fullStock },
+      watchlist: state.watchlist.includes(sym) ? state.watchlist : [sym, ...state.watchlist],
+      selectedSymbol: sym
+    }));
+  },
+
   // ── Market ──
   stocks: initialStockData,
   selectedSymbol: 'TATAMOTORS',
   selectedTimeframe: '5m',
-  
   selectStock: (symbol) => set({ selectedSymbol: symbol }),
   selectTimeframe: (tf) => set({ selectedTimeframe: tf }),
-  
+
+  // ── Backend integration ──
+  setBackendStats: (stats) => set({ backendStats: stats }),
+  setAllStockQuotes: (quotes) => set({ allStockQuotes: quotes }),
+  setBackendOnline: (online) => set({ backendOnline: online }),
+
   // ── Alerts ──
   alerts: [],
+  notifications: [], // for bell icon
   dismissAlert: (id) => set(state => ({
     alerts: state.alerts.map(a => a.id === id ? { ...a, dismissed: true } : a)
   })),
-  addAlert: (alert) => set(state => ({
-    alerts: [alert, ...state.alerts.filter(a => !a.dismissed)].slice(0, 20)
+  addAlert: (alert) => set(state => {
+    // ── Pre-check: Prevent duplicate spam for the same stock/direction ──
+    const isDuplicate = state.alerts.some(a => 
+      !a.dismissed && 
+      a.symbol === alert.symbol && 
+      a.direction === alert.direction &&
+      (Date.now() - a.timestamp.getTime() < 3600000) // Within 1 hour
+    );
+
+    if (isDuplicate) return state; // Drop repetitive alerts
+
+    const notif = {
+      notifId: Date.now() + Math.random(),
+      symbol: alert.symbol,
+      direction: alert.direction,
+      confidence: alert.confidence,
+      price: alert.price,
+      timestamp: new Date(),
+      read: false,
+    };
+    
+    // Play a smooth notification sound if Web Audio is allowed
+    if (typeof window !== 'undefined') {
+      try {
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        audio.volume = 0.4;
+        audio.play().catch(() => {}); // catch silent failure if auto-play is blocked
+      } catch(e) {}
+    }
+    
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        new Notification(`ARTHA Alert: ${alert.symbol} ${alert.direction}`, {
+          body: `${alert.confidence}% confidence | ₹${alert.price} | R:R 1:${alert.rr}`,
+          icon: '/favicon.svg',
+        });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            new Notification(`ARTHA Alert: ${alert.symbol} ${alert.direction}`, {
+              body: `${alert.confidence}% confidence | ₹${alert.price} | R:R 1:${alert.rr}`,
+              icon: '/favicon.svg',
+            });
+          }
+        });
+      }
+    }
+
+    return {
+      alerts: [alert, ...state.alerts.filter(a => !a.dismissed)].slice(0, 20),
+      notifications: [notif, ...state.notifications].slice(0, 50),
+    };
+  }),
+  markNotificationRead: (id) => set(state => ({
+    notifications: state.notifications.map(n => n.notifId === id ? { ...n, read: true } : n)
   })),
-  
+  clearNotifications: () => set({ notifications: [] }),
+  addNotification: (notif) => set(state => ({
+    notifications: [notif, ...state.notifications].slice(0, 50)
+  })),
+
   // ── Watchlist ──
   watchlist: ['TATAMOTORS', 'RELIANCE', 'INFOSYS', 'HDFCBANK', 'ICICIBANK'],
   addToWatchlist: (sym) => set(state => ({
@@ -298,17 +378,16 @@ export const useArthaStore = create((set, get) => ({
   removeFromWatchlist: (sym) => set(state => ({
     watchlist: state.watchlist.filter(s => s !== sym)
   })),
-  
+
   // ── Trading ──
   capital: 50000,
   riskPct: 2,
   paperMode: false,
   broker: null,
-  
   togglePaperMode: () => set(state => ({ paperMode: !state.paperMode })),
   setCapital: (cap) => set({ capital: cap }),
   setBroker: (b) => set({ broker: b }),
-  
+
   // ── Live tick simulation ──
   lastUpdate: new Date(),
   tickStock: (sym) => set(state => {
@@ -325,33 +404,59 @@ export const useArthaStore = create((set, get) => ({
     }];
     const newStats = computeStats(newCandles);
     const newScore = computeArthaScore(newStats);
-    
     return {
       stocks: {
         ...state.stocks,
-        [sym]: {
-          ...stock,
-          price: newPrice,
-          change: parseFloat((newPrice - stock.prev).toFixed(2)),
-          changePct: parseFloat(((newPrice - stock.prev) / stock.prev * 100).toFixed(2)),
-          candles: newCandles,
-          stats: newStats,
-          arthaScore: newScore,
-        }
+        [sym]: { ...stock, price: newPrice, change: parseFloat((newPrice - stock.prev).toFixed(2)), changePct: parseFloat(((newPrice - stock.prev) / stock.prev * 100).toFixed(2)), candles: newCandles, stats: newStats, arthaScore: newScore }
       },
       lastUpdate: new Date(),
     };
   }),
-  
+
+  // Batch-tick ALL stocks in a single set() → single re-render pass (no cascade)
+  tickAllStocks: () => set(state => {
+    const updatedStocks = {};
+    Object.keys(state.stocks).forEach(sym => {
+      const stock = state.stocks[sym];
+      if (!stock) return;
+      const volatility = 0.001 + Math.random() * 0.0015;
+      const delta = (Math.random() - 0.49) * volatility * stock.price;
+      const newPrice = parseFloat((stock.price + delta).toFixed(2));
+      const lastCandle = stock.candles[stock.candles.length - 1];
+      const newCandles = [...stock.candles.slice(-119), {
+        ...lastCandle,
+        close: newPrice,
+        high: Math.max(lastCandle.high, newPrice),
+        low: Math.min(lastCandle.low, newPrice),
+      }];
+      // Only recompute stats for the selected symbol (expensive) — others just get price
+      const isSelected = sym === state.selectedSymbol;
+      const newStats = isSelected ? computeStats(newCandles) : stock.stats;
+      const newScore = isSelected ? computeArthaScore(newStats) : stock.arthaScore;
+      updatedStocks[sym] = {
+        ...stock,
+        price: newPrice,
+        change: parseFloat((newPrice - stock.prev).toFixed(2)),
+        changePct: parseFloat(((newPrice - stock.prev) / stock.prev * 100).toFixed(2)),
+        candles: newCandles,
+        stats: newStats,
+        arthaScore: newScore,
+      };
+    });
+    return { stocks: updatedStocks, lastUpdate: new Date() };
+  }),
+
   // ── UI Panels ──
   showOrderModal: false,
   orderAlert: null,
   openOrderModal: (alert) => set({ showOrderModal: true, orderAlert: alert }),
   closeOrderModal: () => set({ showOrderModal: false, orderAlert: null }),
-  
   showGlossary: false,
   toggleGlossary: () => set(state => ({ showGlossary: !state.showGlossary })),
-  
+  showSettings: false,
+  toggleSettings: () => set(state => ({ showSettings: !state.showSettings })),
+  showNotifications: false,
+  toggleNotifications: () => set(state => ({ showNotifications: !state.showNotifications })),
   chatOpen: false,
   toggleChat: () => set(state => ({ chatOpen: !state.chatOpen })),
 }));

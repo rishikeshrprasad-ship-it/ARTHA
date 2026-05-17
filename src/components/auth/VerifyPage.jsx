@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useArthaStore } from '../../store/arthaStore';
+import { api, setToken, setUser } from '../../lib/api';
 import ParticleBackground from '../ParticleBackground';
 
 function OTPBox({ value, onChange, onKeyDown, inputRef, filled, error }) {
@@ -9,6 +10,7 @@ function OTPBox({ value, onChange, onKeyDown, inputRef, filled, error }) {
       ref={inputRef}
       className={`otp-input ${filled ? 'filled' : ''} ${error ? 'error' : ''}`}
       type="text"
+      inputMode="numeric"
       maxLength={1}
       value={value}
       onChange={onChange}
@@ -21,8 +23,9 @@ function OTPBox({ value, onChange, onKeyDown, inputRef, filled, error }) {
 export default function VerifyPage() {
   const setAuthStep = useArthaStore(s => s.setAuthStep);
   const signIn = useArthaStore(s => s.signIn);
+  const pendingMobile = useArthaStore(s => s.pendingMobile);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [resendCount, setResendCount] = useState(3);
@@ -45,7 +48,7 @@ export default function VerifyPage() {
     const next = [...otp];
     next[i] = v[v.length - 1];
     setOtp(next);
-    setError(false);
+    setError('');
     if (i < 5) refs.current[i + 1]?.focus();
   };
 
@@ -72,27 +75,54 @@ export default function VerifyPage() {
     const code = otp.join('');
     if (code.length < 6) return;
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1500));
-
-    if (code === '123456' || code.length === 6) {
+    setError('');
+    try {
+      const data = await api.post('/auth/verify-otp', {
+        email: pendingMobile,
+        otp: code,
+      });
+      setToken(data.token);
+      setUser(data.user);
       setSuccess(true);
-      await new Promise(r => setTimeout(r, 1500));
-      signIn({ name: 'Trader', email: 'user@artha.in' });
-      setAuthStep('onboarding');
-    } else {
-      setError(true);
-      setLoading(false);
+      setTimeout(() => {
+        signIn({ token: data.token, user: data.user });
+        setAuthStep('onboarding');
+      }, 1500);
+    } catch (err) {
+      setError(err.message || 'Invalid OTP. Please try again.');
       setOtp(['', '', '', '', '', '']);
       refs.current[0]?.focus();
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (!canResend || resendCount <= 0) return;
-    setResendCount(c => c - 1);
-    setCountdown(60);
-    setCanResend(false);
-    setOtp(['', '', '', '', '', '']);
+    try {
+      const res = await api.post(`/auth/resend-otp?email=${pendingMobile}`, {});
+      if (res.dev_otp) alert(`[DEMO MODE] Your New OTP is: ${res.dev_otp}`);
+      setResendCount(c => c - 1);
+      setCountdown(60);
+      setCanResend(false);
+      setOtp(['', '', '', '', '', '']);
+    } catch (err) {
+      setError(err.message || 'Failed to resend OTP');
+    }
+  };
+
+  // Dev mode: if no backend, allow demo OTP 123456
+  const handleVerifyWithFallback = async () => {
+    const code = otp.join('');
+    if (code === '123456' && !pendingMobile) {
+      setSuccess(true);
+      setTimeout(() => {
+        signIn({ user: { name: 'Demo Trader', email: 'demo@artha.in' } });
+        setAuthStep('onboarding');
+      }, 1500);
+      return;
+    }
+    await handleVerify();
   };
 
   return (
@@ -110,18 +140,17 @@ export default function VerifyPage() {
         {success ? (
           <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
             <div style={{ fontSize: '4rem', marginBottom: 16 }}>✅</div>
-            <h2 style={{ fontFamily: 'Orbitron', color: '#00FF88', fontSize: '1.2rem', marginBottom: 8 }}>Email Verified!</h2>
-            <p style={{ fontFamily: 'Syne', color: '#888' }}>Welcome to ARTHA! Redirecting...</p>
+            <h2 style={{ fontFamily: 'Orbitron', color: '#00FF88', fontSize: '1.2rem', marginBottom: 8 }}>Number Verified!</h2>
+            <p style={{ fontFamily: 'Syne', color: '#888' }}>Welcome to ARTHA! Setting up your account...</p>
           </motion.div>
         ) : (
           <>
-            {/* Envelope Animation */}
             <motion.div
               animate={{ y: [0, -8, 0] }}
               transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
               style={{ fontSize: '3.5rem', marginBottom: 20 }}
             >
-              ✉️
+              📱
             </motion.div>
 
             <h1 style={{ fontFamily: 'Orbitron', fontSize: '1.3rem', color: '#F5F5F5', marginBottom: 8 }}>
@@ -131,14 +160,11 @@ export default function VerifyPage() {
               We sent a 6-digit OTP to
             </p>
             <p style={{ fontFamily: 'JetBrains Mono', color: '#FF6B00', fontSize: '0.9rem', marginBottom: 28 }}>
-              user@artha.in
+              {pendingMobile || '••••••••••'}
             </p>
 
             {/* OTP Boxes */}
-            <div
-              style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 20 }}
-              onPaste={handlePaste}
-            >
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 20 }} onPaste={handlePaste}>
               {otp.map((v, i) => (
                 <OTPBox
                   key={i}
@@ -147,7 +173,7 @@ export default function VerifyPage() {
                   onKeyDown={e => handleKeyDown(i, e)}
                   inputRef={el => (refs.current[i] = el)}
                   filled={v !== ''}
-                  error={error}
+                  error={!!error}
                 />
               ))}
             </div>
@@ -158,19 +184,21 @@ export default function VerifyPage() {
                 animate={{ opacity: 1 }}
                 style={{ fontFamily: 'Syne', fontSize: '0.8rem', color: '#FF3355', marginBottom: 12 }}
               >
-                ❌ Wrong OTP. Please try again.
+                ❌ {error}
               </motion.p>
             )}
 
-            <p style={{ fontFamily: 'Syne', fontSize: '0.75rem', color: '#555', marginBottom: 20 }}>
-              Use <span style={{ color: '#FF6B00', fontFamily: 'JetBrains Mono' }}>123456</span> for demo
-            </p>
+            {!pendingMobile && (
+              <p style={{ fontFamily: 'Syne', fontSize: '0.75rem', color: '#555', marginBottom: 12 }}>
+                Demo: use <span style={{ color: '#FF6B00', fontFamily: 'JetBrains Mono' }}>123456</span>
+              </p>
+            )}
 
             <button
               id="verify-btn"
               className="btn-primary"
               style={{ width: '100%', marginBottom: 16 }}
-              onClick={handleVerify}
+              onClick={handleVerifyWithFallback}
               disabled={otp.join('').length < 6 || loading}
             >
               {loading ? <><div className="spinner" /> Verifying...</> : '✅ VERIFY EMAIL'}
@@ -183,15 +211,13 @@ export default function VerifyPage() {
                   Resend OTP
                 </span>
               ) : (
-                <span style={{ color: '#444' }}>
-                  Resend in {countdown}s
-                </span>
+                <span style={{ color: '#444' }}>Resend in {countdown}s</span>
               )}
             </div>
 
             {resendCount < 3 && (
               <p style={{ fontFamily: 'Syne', fontSize: '0.72rem', color: '#555', marginTop: 6 }}>
-                Resend limit: {resendCount} attempts remaining
+                {resendCount} resend {resendCount === 1 ? 'attempt' : 'attempts'} remaining
               </p>
             )}
 

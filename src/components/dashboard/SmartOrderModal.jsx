@@ -47,7 +47,7 @@ export default function SmartOrderModal() {
 
   if (!showOrderModal || !orderAlert) return null;
 
-  const price = orderAlertPrice();
+  const price = orderAlert?.price ?? 0;
   const sl = parseFloat(slPrice || orderAlert.sl || 0);
   const target = parseFloat(tgtPrice || orderAlert.target || 0);
   const slRisk = Math.abs(price - sl) * qty;
@@ -58,7 +58,7 @@ export default function SmartOrderModal() {
   const maxRiskPct = (slRisk / capital) * 100;
   const brokerage = Math.min(40, totalValue * 0.0003);
 
-  function orderAlertPrice() { return orderAlert?.price ?? 0; }
+
 
   const guardrails = [
     { status: totalValue <= capital ? 'ok' : 'error', message: totalValue <= capital ? 'Capital check: Sufficient funds available' : 'Insufficient funds!' },

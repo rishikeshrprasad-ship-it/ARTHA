@@ -4,6 +4,7 @@ import SplashScreen from './components/auth/SplashScreen';
 import SignUpPage from './components/auth/SignUpPage';
 import VerifyPage from './components/auth/VerifyPage';
 import SignInPage from './components/auth/SignInPage';
+import ForgotPasswordPage from './components/auth/ForgotPasswordPage';
 import OnboardingFlow from './components/auth/OnboardingFlow';
 import Dashboard from './components/dashboard/Dashboard';
 
@@ -20,6 +21,7 @@ export default function App() {
     case 'signup':    return <SignUpPage />;
     case 'verify':    return <VerifyPage />;
     case 'signin':    return <SignInPage />;
+    case 'forgot':    return <ForgotPasswordPage />;
     case 'onboarding': return <OnboardingFlow />;
     default:          return <SplashScreen />;
   }
